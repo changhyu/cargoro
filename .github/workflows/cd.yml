@@ -1,0 +1,174 @@
+name: 지속적 배포 (CD)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '배포 환경'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_USERNAME: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+  KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
+jobs:
+  build-and-push:
+    name: 이미지 빌드 및 푸시
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tags: ${{ steps.meta.outputs.tags }}
+    strategy:
+      matrix:
+        service: [api-gateway, worker]
+        include:
+          - service: api-gateway
+            context: ./backend/gateway
+            dockerfile: ./infra/docker/api-gateway/Dockerfile
+          - service: worker
+            context: ./backend/jobs
+            dockerfile: ./infra/docker/worker/Dockerfile
+    
+    steps:
+      - name: 소스코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v2
+
+      - name: 레지스트리 로그인
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: 이미지 메타데이터 준비
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-to-k8s:
+    name: ${{ github.event.inputs.environment || 'staging' }} 환경에 배포
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 소스코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: kubeconfig 설정
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ env.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Helm 설치
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.12.0'
+
+      - name: kubectl 설치
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: 배포 환경 확인
+        id: deployment-env
+        run: |
+          ENV=${{ github.event.inputs.environment || 'staging' }}
+          echo "환경: $ENV"
+          echo "ENV=$ENV" >> $GITHUB_ENV
+          
+      - name: Helm 차트 업데이트 및 배포
+        run: |
+          ENV=${{ env.ENV }}
+          
+          # values 파일 선택
+          VALUES_FILE="infra/k8s/values-${ENV}.yaml"
+          if [ ! -f "$VALUES_FILE" ]; then
+            VALUES_FILE="infra/k8s/values.yaml"
+            echo "환경별 values 파일을 찾을 수 없어 기본 values.yaml 사용"
+          fi
+          
+          # 네임스페이스 확인 및 생성
+          NAMESPACE="cargoro-${ENV}"
+          kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 이미지 태그 가져오기 (SHA 기준)
+          API_GATEWAY_TAG=$(echo '${{ needs.build-and-push.outputs.image_tags }}' | grep -o "${{ env.REGISTRY }}/${{ github.repository }}/api-gateway@sha256:[a-f0-9]*" | head -1)
+          WORKER_TAG=$(echo '${{ needs.build-and-push.outputs.image_tags }}' | grep -o "${{ env.REGISTRY }}/${{ github.repository }}/worker@sha256:[a-f0-9]*" | head -1)
+          
+          # Helm 배포
+          helm upgrade --install cargoro-${ENV} ./infra/k8s \
+            --namespace $NAMESPACE \
+            --values $VALUES_FILE \
+            --set apiGateway.image=$API_GATEWAY_TAG \
+            --set worker.image=$WORKER_TAG \
+            --set global.environment=$ENV
+          
+          echo "배포 완료: $NAMESPACE 네임스페이스의 cargoro-${ENV} 릴리스"
+
+  verify-deployment:
+    name: 배포 검증
+    needs: deploy-to-k8s
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - name: kubeconfig 설정
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ env.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: kubectl 설치
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: 배포 상태 확인
+        run: |
+          ENV=${{ github.event.inputs.environment || 'staging' }}
+          NAMESPACE="cargoro-${ENV}"
+          
+          echo "API 게이트웨이 배포 상태"
+          kubectl rollout status deployment/api-gateway -n $NAMESPACE
+          
+          echo "워커 배포 상태"
+          kubectl rollout status deployment/worker -n $NAMESPACE
+          
+          echo "서비스 상태"
+          kubectl get all -n $NAMESPACE 
