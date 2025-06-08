@@ -1,0 +1,889 @@
+openapi: 3.0.3
+info:
+  title: CarGoro Parts API
+  description: |
+    부품 관리, 재고 관리, 공급업체 관리 API
+  version: 0.1.0
+  contact:
+    name: CarGoro 개발팀
+    email: dev@cargoro.com
+
+servers:
+  - url: 'https://api.cargoro.com/parts'
+    description: 운영 환경
+  - url: 'https://api-staging.cargoro.com/parts'
+    description: 스테이징 환경
+  - url: 'http://localhost:8003'
+    description: 로컬 개발 환경
+
+tags:
+  - name: parts
+    description: 부품 관리
+  - name: suppliers
+    description: 공급업체 관리
+  - name: inventory
+    description: 재고 관리
+  - name: orders
+    description: 구매 주문 관리
+
+paths:
+  /parts:
+    get:
+      summary: 부품 목록 조회
+      description: 필터링 옵션으로 부품 목록을 조회합니다.
+      tags:
+        - parts
+      parameters:
+        - $ref: '#/components/parameters/PartNumber'
+        - $ref: '#/components/parameters/PartName'
+        - $ref: '#/components/parameters/Manufacturer'
+        - $ref: '#/components/parameters/PartType'
+        - $ref: '#/components/parameters/PartStatus'
+        - $ref: '#/components/parameters/MinPrice'
+        - $ref: '#/components/parameters/MaxPrice'
+        - $ref: '#/components/parameters/InStockOnly'
+        - $ref: '#/components/parameters/SupplierID'
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 부품 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PartResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 부품 생성
+      description: 새로운 부품을 생성합니다.
+      tags:
+        - parts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartCreate'
+      responses:
+        '201':
+          description: 생성된 부품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '409':
+          description: 중복된 부품 번호
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /parts/{part_id}:
+    get:
+      summary: 부품 조회
+      description: ID로 특정 부품을 조회합니다.
+      tags:
+        - parts
+      parameters:
+        - $ref: '#/components/parameters/PartID'
+      responses:
+        '200':
+          description: 부품 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      summary: 부품 수정
+      description: 특정 부품의 정보를 수정합니다.
+      tags:
+        - parts
+      parameters:
+        - $ref: '#/components/parameters/PartID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartUpdate'
+      responses:
+        '200':
+          description: 수정된 부품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 중복된 부품 번호
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: 부품 삭제
+      description: 특정 부품을 삭제합니다. 연결된 주문이 있는 경우 단종 처리됩니다.
+      tags:
+        - parts
+      parameters:
+        - $ref: '#/components/parameters/PartID'
+      responses:
+        '200':
+          description: 삭제된 부품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /parts/{part_id}/stock:
+    patch:
+      summary: 재고 조정
+      description: 부품의 재고 수량을 조정합니다.
+      tags:
+        - parts
+        - inventory
+      parameters:
+        - $ref: '#/components/parameters/PartID'
+        - name: quantity
+          in: query
+          description: 조정할 수량 (양수는 증가, 음수는 감소)
+          required: true
+          schema:
+            type: integer
+        - name: reason
+          in: query
+          description: 재고 조정 사유
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 재고 조정된 부품
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '400':
+          description: 재고 부족
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /parts/by-part-number/{part_number}:
+    get:
+      summary: 부품 번호로 조회
+      description: 부품 번호로 특정 부품을 조회합니다.
+      tags:
+        - parts
+      parameters:
+        - name: part_number
+          in: path
+          description: 조회할 부품 번호
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 부품 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /suppliers:
+    get:
+      summary: 공급업체 목록 조회
+      description: 필터링 옵션으로 공급업체 목록을 조회합니다.
+      tags:
+        - suppliers
+      parameters:
+        - name: name
+          in: query
+          description: 공급업체명 검색
+          schema:
+            type: string
+        - name: email
+          in: query
+          description: 이메일 검색
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          description: 활성 상태 필터
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 공급업체 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupplierResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 공급업체 생성
+      description: 새로운 공급업체를 생성합니다.
+      tags:
+        - suppliers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierCreate'
+      responses:
+        '201':
+          description: 생성된 공급업체
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierResponse'
+        '409':
+          description: 중복된 이메일
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /suppliers/{supplier_id}:
+    get:
+      summary: 공급업체 조회
+      description: ID로 특정 공급업체를 조회합니다.
+      tags:
+        - suppliers
+      parameters:
+        - $ref: '#/components/parameters/SupplierID'
+      responses:
+        '200':
+          description: 공급업체 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      summary: 공급업체 수정
+      description: 특정 공급업체의 정보를 수정합니다.
+      tags:
+        - suppliers
+      parameters:
+        - $ref: '#/components/parameters/SupplierID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierUpdate'
+      responses:
+        '200':
+          description: 수정된 공급업체
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 중복된 이메일
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: 공급업체 삭제
+      description: 특정 공급업체를 삭제합니다. 연결된 부품이 있는 경우 비활성화 처리됩니다.
+      tags:
+        - suppliers
+      parameters:
+        - $ref: '#/components/parameters/SupplierID'
+      responses:
+        '200':
+          description: 삭제된 공급업체
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /suppliers/{supplier_id}/status:
+    patch:
+      summary: 공급업체 상태 변경
+      description: 공급업체의 활성 상태를 변경합니다.
+      tags:
+        - suppliers
+      parameters:
+        - $ref: '#/components/parameters/SupplierID'
+        - name: is_active
+          in: query
+          description: 활성화 상태 (true: 활성, false: 비활성)
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 상태 변경된 공급업체
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /suppliers/{supplier_id}/parts:
+    get:
+      summary: 공급업체 부품 목록
+      description: 특정 공급업체가 공급하는 부품 목록을 조회합니다.
+      tags:
+        - suppliers
+        - parts
+      parameters:
+        - $ref: '#/components/parameters/SupplierID'
+      responses:
+        '200':
+          description: 부품 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PartResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    PartID:
+      name: part_id
+      in: path
+      description: 부품 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SupplierID:
+      name: supplier_id
+      in: path
+      description: 공급업체 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PartNumber:
+      name: part_number
+      in: query
+      description: 부품 번호 검색
+      schema:
+        type: string
+    PartName:
+      name: name
+      in: query
+      description: 부품명 검색
+      schema:
+        type: string
+    Manufacturer:
+      name: manufacturer
+      in: query
+      description: 제조사 검색
+      schema:
+        type: string
+    PartType:
+      name: part_type
+      in: query
+      description: 부품 유형 필터
+      schema:
+        $ref: '#/components/schemas/PartType'
+    PartStatus:
+      name: status
+      in: query
+      description: 부품 상태 필터
+      schema:
+        $ref: '#/components/schemas/PartStatus'
+    MinPrice:
+      name: min_price
+      in: query
+      description: 최소 가격
+      schema:
+        type: number
+        format: float
+    MaxPrice:
+      name: max_price
+      in: query
+      description: 최대 가격
+      schema:
+        type: number
+        format: float
+    InStockOnly:
+      name: in_stock_only
+      in: query
+      description: 재고 있는 상품만 필터링
+      schema:
+        type: boolean
+        default: false
+    Skip:
+      name: skip
+      in: query
+      description: 건너뛸 항목 수
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Limit:
+      name: limit
+      in: query
+      description: 반환할 최대 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 100
+
+  responses:
+    NotFound:
+      description: 요청한 리소스를 찾을 수 없습니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    PartStatus:
+      type: string
+      enum:
+        - IN_STOCK
+        - LOW_STOCK
+        - OUT_OF_STOCK
+        - DISCONTINUED
+        - ORDERED
+      description: |
+        * `IN_STOCK` - 재고 있음
+        * `LOW_STOCK` - 부족 재고
+        * `OUT_OF_STOCK` - 재고 없음
+        * `DISCONTINUED` - 단종됨
+        * `ORDERED` - 주문됨
+
+    PartType:
+      type: string
+      enum:
+        - ENGINE
+        - TRANSMISSION
+        - BRAKE
+        - SUSPENSION
+        - ELECTRICAL
+        - BODY
+        - FLUID
+        - OTHER
+      description: |
+        * `ENGINE` - 엔진 부품
+        * `TRANSMISSION` - 변속기 부품
+        * `BRAKE` - 브레이크 부품
+        * `SUSPENSION` - 서스펜션 부품
+        * `ELECTRICAL` - 전기 부품
+        * `BODY` - 차체 부품
+        * `FLUID` - 유체/오일
+        * `OTHER` - 기타
+
+    PartBase:
+      type: object
+      required:
+        - part_number
+        - name
+        - part_type
+        - price
+      properties:
+        part_number:
+          type: string
+          description: 부품 번호
+          example: "HD-12345-A"
+        name:
+          type: string
+          description: 부품명
+          example: "프론트 브레이크 패드"
+        description:
+          type: string
+          description: 부품 설명
+          example: "현대 소나타 프론트 디스크 브레이크 패드"
+        part_type:
+          $ref: '#/components/schemas/PartType'
+        price:
+          type: number
+          format: float
+          description: 판매 가격
+          example: 75000
+
+    PartCreate:
+      allOf:
+        - $ref: '#/components/schemas/PartBase'
+        - type: object
+          required:
+            - manufacturer
+          properties:
+            manufacturer:
+              type: string
+              description: 제조사
+              example: "현대모비스"
+            quantity:
+              type: integer
+              description: 재고 수량
+              default: 0
+              example: 10
+            min_quantity:
+              type: integer
+              description: 최소 재고 수량
+              default: 5
+              example: 5
+            location:
+              type: string
+              description: 창고 내 위치
+              example: "A1-B2-C3"
+            supplier_ids:
+              type: array
+              description: 공급업체 ID 목록
+              items:
+                type: string
+                format: uuid
+            compatible_vehicles:
+              type: array
+              description: 호환 차량 목록
+              items:
+                type: string
+              example: ["현대 소나타", "현대 그랜저"]
+            image_url:
+              type: string
+              description: 이미지 URL
+              format: uri
+              example: "https://example.com/images/brake_pad.jpg"
+            warranty_period:
+              type: integer
+              description: 보증 기간(월)
+              example: 12
+            notes:
+              type: string
+              description: 메모
+              example: "OEM 정품"
+
+    PartUpdate:
+      type: object
+      properties:
+        part_number:
+          type: string
+          description: 부품 번호
+        name:
+          type: string
+          description: 부품명
+        description:
+          type: string
+          description: 부품 설명
+        manufacturer:
+          type: string
+          description: 제조사
+        part_type:
+          $ref: '#/components/schemas/PartType'
+        price:
+          type: number
+          format: float
+          description: 판매 가격
+        quantity:
+          type: integer
+          description: 재고 수량
+        min_quantity:
+          type: integer
+          description: 최소 재고 수량
+        status:
+          $ref: '#/components/schemas/PartStatus'
+        location:
+          type: string
+          description: 창고 내 위치
+        supplier_ids:
+          type: array
+          description: 공급업체 ID 목록
+          items:
+            type: string
+            format: uuid
+        compatible_vehicles:
+          type: array
+          description: 호환 차량 목록
+          items:
+            type: string
+        image_url:
+          type: string
+          description: 이미지 URL
+          format: uri
+        warranty_period:
+          type: integer
+          description: 보증 기간(월)
+        notes:
+          type: string
+          description: 메모
+
+    PartResponse:
+      allOf:
+        - $ref: '#/components/schemas/PartBase'
+        - type: object
+          required:
+            - id
+            - manufacturer
+            - quantity
+            - min_quantity
+            - status
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 부품 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            manufacturer:
+              type: string
+              description: 제조사
+              example: "현대모비스"
+            quantity:
+              type: integer
+              description: 재고 수량
+              example: 10
+            min_quantity:
+              type: integer
+              description: 최소 재고 수량
+              example: 5
+            status:
+              $ref: '#/components/schemas/PartStatus'
+            location:
+              type: string
+              description: 창고 내 위치
+              example: "A1-B2-C3"
+            supplier_ids:
+              type: array
+              description: 공급업체 ID 목록
+              items:
+                type: string
+                format: uuid
+              example: ["f47ac10b-58cc-4372-a567-0e02b2c3d480"]
+            compatible_vehicles:
+              type: array
+              description: 호환 차량 목록
+              items:
+                type: string
+              example: ["현대 소나타", "현대 그랜저"]
+            image_url:
+              type: string
+              description: 이미지 URL
+              format: uri
+              example: "https://example.com/images/brake_pad.jpg"
+            warranty_period:
+              type: integer
+              description: 보증 기간(월)
+              example: 12
+            notes:
+              type: string
+              description: 메모
+              example: "OEM 정품"
+            created_at:
+              type: string
+              format: date-time
+              description: 생성 일시
+              example: "2023-05-20T12:34:56Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: 수정 일시
+              example: "2023-05-20T12:34:56Z"
+
+    SupplierBase:
+      type: object
+      required:
+        - name
+        - contact_person
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+          description: 공급업체명
+          example: "(주)오토파츠코리아"
+        contact_person:
+          type: string
+          description: 담당자
+          example: "김담당"
+        email:
+          type: string
+          format: email
+          description: 이메일
+          example: "contact@autopartskorea.com"
+        phone:
+          type: string
+          description: 연락처
+          example: "02-1234-5678"
+
+    SupplierCreate:
+      allOf:
+        - $ref: '#/components/schemas/SupplierBase'
+        - type: object
+          properties:
+            address:
+              type: string
+              description: 주소
+              example: "서울시 강남구 테헤란로 123"
+            website:
+              type: string
+              format: uri
+              description: 웹사이트
+              example: "https://www.autopartskorea.com"
+            tax_id:
+              type: string
+              description: 사업자등록번호
+              example: "123-45-67890"
+            payment_terms:
+              type: string
+              description: 결제 조건
+              example: "30일 내 결제"
+            lead_time_days:
+              type: integer
+              description: 배송 소요일
+              example: 3
+            notes:
+              type: string
+              description: 메모
+              example: "주문량에 따라 할인율 적용 가능"
+
+    SupplierUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 공급업체명
+        contact_person:
+          type: string
+          description: 담당자
+        email:
+          type: string
+          format: email
+          description: 이메일
+        phone:
+          type: string
+          description: 연락처
+        address:
+          type: string
+          description: 주소
+        website:
+          type: string
+          format: uri
+          description: 웹사이트
+        tax_id:
+          type: string
+          description: 사업자등록번호
+        payment_terms:
+          type: string
+          description: 결제 조건
+        lead_time_days:
+          type: integer
+          description: 배송 소요일
+        is_active:
+          type: boolean
+          description: 활성 상태
+        notes:
+          type: string
+          description: 메모
+
+    SupplierResponse:
+      allOf:
+        - $ref: '#/components/schemas/SupplierBase'
+        - type: object
+          required:
+            - id
+            - is_active
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 공급업체 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            address:
+              type: string
+              description: 주소
+              example: "서울시 강남구 테헤란로 123"
+            website:
+              type: string
+              format: uri
+              description: 웹사이트
+              example: "https://www.autopartskorea.com"
+            tax_id:
+              type: string
+              description: 사업자등록번호
+              example: "123-45-67890"
+            payment_terms:
+              type: string
+              description: 결제 조건
+              example: "30일 내 결제"
+            lead_time_days:
+              type: integer
+              description: 배송 소요일
+              example: 3
+            is_active:
+              type: boolean
+              description: 활성 상태
+              example: true
+            notes:
+              type: string
+              description: 메모
+              example: "주문량에 따라 할인율 적용 가능"
+            created_at:
+              type: string
+              format: date-time
+              description: 생성 일시
+              example: "2023-05-20T12:34:56Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: 수정 일시
+              example: "2023-05-20T12:34:56Z"
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: HTTP 상태 코드
+          example: 404
+        message:
+          type: string
+          description: 오류 메시지
+          example: "ID 'f47ac10b-58cc-4372-a567-0e02b2c3d479'인 부품을 찾을 수 없습니다."
+        details:
+          type: string
+          description: 추가 오류 상세 정보
+          example: "데이터베이스에서 해당 ID에 해당하는 레코드가 없습니다." 

@@ -1,0 +1,145 @@
+name: 테스트 및 커버리지 검증
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 테스트 실행 및 커버리지 분석
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: PNPM 설정
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: 의존성 설치
+        run: pnpm install
+
+      - name: ESLint 실행
+        run: pnpm lint
+
+      - name: 타입 검사
+        run: pnpm typecheck
+
+      - name: 앱별 테스트 실행
+        run: |
+          cd apps/workshop-web && pnpm test
+          cd ../fleet-manager-web && pnpm test
+          cd ../delivery-driver && pnpm test
+          cd ../smart-car-assistant && pnpm test
+          cd ../parts-web && pnpm test
+          cd ../superadmin-web && pnpm test
+          cd ../workshop-mobile && pnpm test
+
+      - name: 패키지별 테스트 실행
+        run: |
+          cd packages/ui && pnpm test
+          cd ../utils && pnpm test
+          cd ../analytics && pnpm test
+          cd ../api-client && pnpm test
+          cd ../auth && pnpm test
+          cd ../types && pnpm test
+
+      - name: 커버리지 리포트 생성
+        run: |
+          echo "### 앱별 테스트 커버리지 요약" >> $GITHUB_STEP_SUMMARY
+          find apps packages -name "coverage-summary.json" -exec cat {} \; | jq '.total | {lines, statements, functions, branches}' >> $GITHUB_STEP_SUMMARY
+
+      - name: 커버리지 업로드
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./apps/*/coverage/,./packages/*/coverage/
+          fail_ci_if_error: false
+
+      - name: 커버리지 뱃지 생성
+        run: echo "각 앱별 커버리지 뱃지는 앱 디렉토리에서 확인 가능합니다."
+
+      - name: 커버리지 아티팩트 저장
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            apps/*/coverage/
+            packages/*/coverage/
+          retention-days: 7
+
+  e2e-tests:
+    name: E2E 테스트 실행
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: PNPM 설정
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: 의존성 설치
+        run: pnpm install
+
+      - name: Playwright 설치
+        run: pnpm exec playwright install --with-deps
+
+      - name: 빌드
+        run: pnpm build
+
+      - name: 앱별 E2E 테스트 실행
+        run: |
+          cd apps/workshop-web && pnpm test:e2e
+          cd ../fleet-manager-web && pnpm test:e2e
+          cd ../superadmin-web && pnpm test:e2e
+          cd ../parts-web && pnpm test:e2e
+
+      - name: 테스트 보고서 저장
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-reports
+          path: |
+            apps/*/playwright-report/
+            apps/*/test-results/
+          retention-days: 7
+
+  # 테스트 결과에 따른 PR 코멘트 추가
+  comment-pr:
+    name: 테스트 결과 코멘트
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 테스트 결과 코멘트
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: test-results
+          message: |
+            ## 테스트 결과
+            ✅ 모든 테스트가 성공적으로 완료되었습니다.
+
+            ### 커버리지 정보
+            코드 커버리지 보고서는 [Codecov](https://codecov.io/gh/${{ github.repository }}/pull/${{ github.event.pull_request.number }})에서 확인할 수 있습니다.

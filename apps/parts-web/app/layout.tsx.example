@@ -1,0 +1,93 @@
+import { ClerkProvider } from '@cargoro/auth/web';
+import { getAuthConfig } from '@cargoro/auth/config/auth-config';
+import { Noto_Sans_KR } from 'next/font/google';
+import './globals.css';
+
+const notoSansKR = Noto_Sans_KR({ 
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700', '900'],
+});
+
+export const metadata = {
+  title: '카고로 부품몰 - 자동차 부품 마켓플레이스',
+  description: '정품 자동차 부품을 최저가로 만나보세요. 빠른 배송, 안전한 거래',
+  keywords: '자동차부품, 정품부품, 부품몰, 카고로, 자동차용품',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const authConfig = {
+    ...getAuthConfig('parts-web'),
+    appearance: {
+      baseTheme: undefined,
+      variables: {
+        colorPrimary: '#f97316', // 오렌지 테마
+        colorText: '#0f172a',
+        colorBackground: '#ffffff',
+        colorInputBackground: '#f8fafc',
+        colorInputText: '#0f172a',
+        borderRadius: '0.75rem',
+        fontFamily: notoSansKR.style.fontFamily,
+      },
+      elements: {
+        formButtonPrimary: 'bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl',
+        card: 'shadow-lg border-0 rounded-2xl',
+        headerTitle: 'text-3xl font-black text-gray-900',
+        headerSubtitle: 'text-gray-600 mt-2',
+        socialButtonsBlockButton: 'border-2 border-gray-200 hover:border-orange-200 rounded-xl transition-colors',
+        formFieldLabel: 'text-gray-700 font-medium text-sm mb-2',
+        formFieldInput: 'border-gray-200 focus:border-orange-500 focus:ring-orange-500 rounded-lg px-4 py-3',
+        footerActionLink: 'text-orange-500 hover:text-orange-600 font-medium',
+        identityPreviewText: 'text-gray-700',
+        identityPreviewEditButton: 'text-orange-500 hover:text-orange-600',
+        dividerRow: 'my-8',
+        dividerText: 'text-gray-400 text-sm',
+        formResendCodeLink: 'text-orange-500 hover:text-orange-600',
+        alert: 'rounded-xl',
+        alertText: 'text-sm',
+      },
+      layout: {
+        socialButtonsPlacement: 'top',
+        socialButtonsVariant: 'blockButton',
+        showOptionalFields: true,
+        logoPlacement: 'inside',
+        helpPageUrl: '/help',
+        privacyPageUrl: '/privacy',
+        termsPageUrl: '/terms',
+      },
+    },
+    localization: {
+      locale: 'ko-KR',
+      // 부품몰 전용 텍스트
+      signIn: {
+        start: {
+          title: '부품몰 로그인',
+          subtitle: '정품 부품을 최저가로 만나보세요',
+          actionText: '계정이 없으신가요?',
+          actionLink: '회원가입',
+        },
+      },
+      signUp: {
+        start: {
+          title: '부품몰 회원가입',
+          subtitle: '지금 가입하고 특별 할인을 받으세요!',
+          actionText: '이미 계정이 있으신가요?',
+          actionLink: '로그인',
+        },
+      },
+    },
+  };
+
+  return (
+    <html lang="ko" className={notoSansKR.className}>
+      <body className="min-h-screen bg-gray-50">
+        <ClerkProvider {...authConfig}>
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
+  );
+}

@@ -1,0 +1,46 @@
+# 빌드 결과물 제외 - 최우선으로 제외
+web-build/
+web-build/**/*
+build/
+build/**/*
+dist/
+dist/**/*
+.expo/
+.expo/**/*
+
+# 의존성 제외
+node_modules/
+node_modules/**/*
+
+# 설정 파일들
+*.config.js
+*.config.ts
+babel.config.js
+metro.config.js
+expo.json
+app.json
+
+# 테스트 및 커버리지
+coverage/
+coverage/**/*
+.nyc_output/
+
+# 로그 파일들
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 압축된 파일들
+*.min.js
+*.bundle.js
+*.chunk.js
+
+# 기타 제외 대상
+.DS_Store
+*.tsbuildinfo
+*.map
+
+# React Native 특화 제외
+ios/
+android/

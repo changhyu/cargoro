@@ -1,0 +1,59 @@
+import { ClerkProvider } from '@cargoro/auth/web';
+import { getAuthConfig } from '@cargoro/auth/config/auth-config';
+import { Inter } from 'next/font/google';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: '카고로 워크샵 - 자동차 정비 관리 시스템',
+  description: '효율적인 자동차 정비 및 수리 관리를 위한 통합 솔루션',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const authConfig = {
+    ...getAuthConfig('workshop-web'),
+    appearance: {
+      baseTheme: undefined,
+      variables: {
+        colorPrimary: '#2563eb', // 파란색 테마
+        colorText: '#1f2937',
+        colorBackground: '#ffffff',
+        colorInputBackground: '#f9fafb',
+        colorInputText: '#1f2937',
+        borderRadius: '0.5rem',
+      },
+      elements: {
+        formButtonPrimary: 'bg-blue-600 hover:bg-blue-700',
+        card: 'shadow-lg border-gray-200',
+        headerTitle: 'text-2xl font-bold text-gray-900',
+        headerSubtitle: 'text-gray-600',
+        socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50',
+        formFieldLabel: 'text-gray-700 font-medium',
+        formFieldInput: 'border-gray-300 focus:border-blue-500 focus:ring-blue-500',
+        footerActionLink: 'text-blue-600 hover:text-blue-700',
+      },
+      layout: {
+        socialButtonsPlacement: 'bottom',
+        socialButtonsVariant: 'blockButton',
+      },
+    },
+    localization: {
+      locale: 'ko-KR',
+    },
+  };
+
+  return (
+    <html lang="ko" className={inter.className}>
+      <body className="min-h-screen bg-gray-50">
+        <ClerkProvider {...authConfig}>
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
+  );
+}

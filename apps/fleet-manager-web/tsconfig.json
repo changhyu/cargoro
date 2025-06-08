@@ -1,0 +1,65 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "types": ["node"],
+    "paths": {
+      "@pages/*": ["./app/pages/*"],
+      "@components/*": ["./app/components/*"],
+      "@features/*": ["./app/features/*"],
+      "@hooks/*": ["./app/hooks/*"],
+      "@state/*": ["./app/state/*"],
+      "@services/*": ["./app/services/*"],
+      "@constants/*": ["./app/constants/*"],
+      "@/*": ["./*"],
+      "@app/*": ["./app/*"],
+      "@cargoro/ui": ["../../packages/ui/dist/index"],
+      "@cargoro/ui/*": ["../../packages/ui/dist/*"]
+    },
+    "strictNullChecks": true,
+    "noImplicitAny": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    ".next/types/**/*.ts",
+    "types/**/*.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "middleware.ts",
+    "pages/**/*.ts",
+    "pages/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "app/components/ui/index.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "tests/**/*",
+    "vitest.setup.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}

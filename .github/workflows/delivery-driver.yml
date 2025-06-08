@@ -1,0 +1,161 @@
+name: Delivery Driver App CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/delivery-driver/**'
+      - 'packages/**'
+      - '.github/workflows/delivery-driver.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/delivery-driver/**'
+      - 'packages/**'
+
+jobs:
+  lint-and-type-check:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check delivery-driver app
+        run: |
+          cd apps/delivery-driver
+          pnpm run typecheck
+
+      - name: Lint delivery-driver app
+        run: |
+          cd apps/delivery-driver
+          pnpm run lint app/
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-type-check
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: |
+          cd apps/delivery-driver
+          pnpm run test
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Android release
+        run: |
+          cd apps/delivery-driver
+          npx expo prebuild --platform android
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-driver-android
+          path: apps/delivery-driver/android/app/build/outputs/apk/release/app-release.apk
+
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build iOS
+        run: |
+          cd apps/delivery-driver
+          npx expo prebuild --platform ios
+          cd ios
+          pod install
+          xcodebuild -workspace DeliveryDriver.xcworkspace -scheme DeliveryDriver -configuration Release -sdk iphonesimulator -derivedDataPath build
+
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-driver-ios
+          path: apps/delivery-driver/ios/build/Build/Products/Release-iphonesimulator/

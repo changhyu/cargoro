@@ -1,0 +1,904 @@
+import { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+// 임시 작업 데이터
+const DUMMY_SERVICE = {
+  id: 's1',
+  appointmentId: 'a2',
+  customer: {
+    id: 'c1',
+    name: '이영희',
+    phone: '010-1234-5678',
+    email: 'younghee@example.com',
+    memberSince: '2023-05-12',
+  },
+  vehicle: {
+    make: '기아',
+    model: 'K5',
+    year: 2022,
+    licensePlate: '456나 7890',
+    vin: 'KM8J3CAL6NU654321',
+    color: '스노우 화이트 펄',
+    mileage: 25840,
+  },
+  serviceDetails: {
+    type: '일반 정비',
+    items: [
+      {
+        id: 'si1',
+        name: '타이어 교체',
+        description: '프론트 타이어 2개 교체 (미쉐린 프라이머시4)',
+        status: 'completed',
+        technicianId: 't1',
+        technicianName: '박기술',
+        partIds: ['p1', 'p2'],
+        laborHours: 1,
+        startTime: '2025-05-22 11:15',
+        endTime: '2025-05-22 12:20',
+      },
+      {
+        id: 'si2',
+        name: '휠 얼라인먼트',
+        description: '타이어 교체 후 휠 얼라인먼트 조정',
+        status: 'in-progress',
+        technicianId: 't1',
+        technicianName: '박기술',
+        partIds: [],
+        laborHours: 0.5,
+        startTime: '2025-05-22 12:25',
+        endTime: null,
+      },
+    ],
+    recommendedServices: [
+      {
+        id: 'rs1',
+        name: '브레이크 패드 교체',
+        description: '앞 브레이크 패드 마모 상태 80%, 교체 권장',
+        urgency: 'medium',
+        estimatedCost: 120000,
+      },
+      {
+        id: 'rs2',
+        name: '에어컨 필터 교체',
+        description: '에어컨 필터 교체 권장 (마지막 교체 후 12개월 경과)',
+        urgency: 'low',
+        estimatedCost: 30000,
+      },
+    ],
+  },
+  partsUsed: [
+    {
+      id: 'p1',
+      name: '미쉐린 프라이머시4 타이어 225/45R18',
+      quantity: 2,
+      unitPrice: 150000,
+      totalPrice: 300000,
+    },
+    {
+      id: 'p2',
+      name: '밸런스 웨이트',
+      quantity: 12,
+      unitPrice: 1000,
+      totalPrice: 12000,
+    },
+  ],
+  timeline: [
+    { time: '11:00', description: '차량 입고' },
+    { time: '11:10', description: '작업 시작' },
+    { time: '11:15', description: '타이어 교체 작업 시작' },
+    { time: '12:20', description: '타이어 교체 완료' },
+    { time: '12:25', description: '휠 얼라인먼트 작업 시작' },
+  ],
+  photos: [
+    { id: 'ph1', url: 'https://example.com/photos/tire1.jpg', description: '교체 전 타이어 상태' },
+    { id: 'ph2', url: 'https://example.com/photos/tire2.jpg', description: '교체 후 타이어 상태' },
+  ],
+  notes: '고객이 브레이크에서 소음이 나는 것에 대해 문의함. 브레이크 패드 교체 필요성 설명함.',
+  estimatedCompletionTime: '13:30',
+  status: 'in-progress',
+  checkInTime: '10:55',
+  price: {
+    parts: 312000,
+    labor: 90000,
+    subtotal: 402000,
+    tax: 40200,
+    total: 442200,
+  },
+};
+
+const ServiceDetailScreen = ({ route, navigation }) => {
+  // 사용하지 않는 변수 이름 앞에 _ 추가
+  const { serviceId: _serviceId } = route.params || { serviceId: 's1' }; // 기본값은 테스트용
+  const [service, _setService] = useState(DUMMY_SERVICE);
+  const [activeTab, setActiveTab] = useState('details');
+
+  // 작업 상태에 따른 색상 매핑
+  const getStatusColor = status => {
+    switch (status) {
+      case 'completed':
+        return '#2ecc71';
+      case 'in-progress':
+        return '#f39c12';
+      case 'pending':
+        return '#3498db';
+      case 'cancelled':
+        return '#e74c3c';
+      default:
+        return '#7f8c8d';
+    }
+  };
+
+  // 작업 상태에 따른 텍스트 매핑
+  const getStatusText = status => {
+    switch (status) {
+      case 'completed':
+        return '완료';
+      case 'in-progress':
+        return '진행 중';
+      case 'pending':
+        return '대기 중';
+      case 'cancelled':
+        return '취소됨';
+      default:
+        return '알 수 없음';
+    }
+  };
+
+  // 추천 서비스 긴급도에 따른 색상 매핑
+  const getUrgencyColor = urgency => {
+    switch (urgency) {
+      case 'high':
+        return '#e74c3c';
+      case 'medium':
+        return '#f39c12';
+      case 'low':
+        return '#3498db';
+      default:
+        return '#7f8c8d';
+    }
+  };
+
+  // 추천 서비스 긴급도에 따른 텍스트 매핑
+  const getUrgencyText = urgency => {
+    switch (urgency) {
+      case 'high':
+        return '긴급';
+      case 'medium':
+        return '권장';
+      case 'low':
+        return '선택';
+      default:
+        return '알 수 없음';
+    }
+  };
+
+  // 가격 포매팅
+  const formatPrice = price => {
+    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  // 탭 컨텐츠 렌더링
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'details':
+        return renderDetailsTab();
+      case 'parts':
+        return renderPartsTab();
+      case 'timeline':
+        return renderTimelineTab();
+      default:
+        return renderDetailsTab();
+    }
+  };
+
+  // 상세 정보 탭
+  const renderDetailsTab = () => (
+    <View style={styles.tabContent}>
+      {/* 고객 정보 */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>고객 정보</Text>
+        <View style={styles.customerInfoContainer}>
+          <View style={styles.customerIconContainer}>
+            <Icon name="account" size={24} color="#3498db" />
+          </View>
+          <View style={styles.customerInfo}>
+            <Text style={styles.customerName}>{service.customer.name}</Text>
+            <Text style={styles.customerDetail}>{service.customer.phone}</Text>
+            <Text style={styles.customerDetail}>{service.customer.email}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 차량 정보 */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>차량 정보</Text>
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>차량</Text>
+            <Text style={styles.infoValue}>
+              {service.vehicle.make} {service.vehicle.model} ({service.vehicle.year})
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>번호판</Text>
+            <Text style={styles.infoValue}>{service.vehicle.licensePlate}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>주행거리</Text>
+            <Text style={styles.infoValue}>
+              {service.vehicle.mileage.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}km
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>색상</Text>
+            <Text style={styles.infoValue}>{service.vehicle.color}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoFullItem}>
+            <Text style={styles.infoLabel}>VIN</Text>
+            <Text style={styles.infoValue}>{service.vehicle.vin}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 작업 항목 */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>작업 항목</Text>
+        {service.serviceDetails.items.map(item => (
+          <View key={item.id} style={styles.serviceItem}>
+            <View style={styles.serviceItemHeader}>
+              <Text style={styles.serviceItemName}>{item.name}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+                <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+              </View>
+            </View>
+            <Text style={styles.serviceItemDesc}>{item.description}</Text>
+            <View style={styles.serviceItemFooter}>
+              <Text style={styles.serviceItemFooterText}>
+                담당: {item.technicianName} • 작업시간: {item.laborHours}시간
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* 권장 작업 */}
+      {service.serviceDetails.recommendedServices.length > 0 && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>권장 작업</Text>
+          {service.serviceDetails.recommendedServices.map(item => (
+            <View key={item.id} style={styles.recommendedItem}>
+              <View style={styles.recommendedItemHeader}>
+                <Text style={styles.recommendedItemName}>{item.name}</Text>
+                <View
+                  style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) }]}
+                >
+                  <Text style={styles.urgencyText}>{getUrgencyText(item.urgency)}</Text>
+                </View>
+              </View>
+              <Text style={styles.recommendedItemDesc}>{item.description}</Text>
+              <View style={styles.recommendedItemFooter}>
+                <Text style={styles.recommendedItemFooterText}>
+                  예상 비용: {formatPrice(item.estimatedCost)}원
+                </Text>
+                <TouchableOpacity
+                  style={styles.recommendButton}
+                  onPress={() => {
+                    // 실제 로직 구현 (서비스 추가)
+                    // 알림 처리는 해당 함수에서 처리하도록 수정
+                  }}
+                >
+                  <Text style={styles.recommendButtonText}>추가</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* 메모 */}
+      {service.notes && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>메모</Text>
+          <View style={styles.notesContainer}>
+            <Text style={styles.notesText}>{service.notes}</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+
+  // 부품 사용 탭
+  const renderPartsTab = () => (
+    <View style={styles.tabContent}>
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>사용 부품</Text>
+        {service.partsUsed.map((part, index) => (
+          <View
+            key={part.id}
+            style={[
+              styles.partItem,
+              index !== service.partsUsed.length - 1 && styles.partItemBorder,
+            ]}
+          >
+            <View style={styles.partInfo}>
+              <Text style={styles.partName}>{part.name}</Text>
+              <View style={styles.partDetails}>
+                <Text style={styles.partQuantity}>
+                  {part.quantity} x {formatPrice(part.unitPrice)}원
+                </Text>
+                <Text style={styles.partTotal}>{formatPrice(part.totalPrice)}원</Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>결제 정보</Text>
+        <View style={styles.priceContainer}>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>부품 비용</Text>
+            <Text style={styles.priceValue}>{formatPrice(service.price.parts)}원</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>공임</Text>
+            <Text style={styles.priceValue}>{formatPrice(service.price.labor)}원</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>소계</Text>
+            <Text style={styles.priceValue}>{formatPrice(service.price.subtotal)}원</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>VAT (10%)</Text>
+            <Text style={styles.priceValue}>{formatPrice(service.price.tax)}원</Text>
+          </View>
+          <View style={[styles.priceRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>총 금액</Text>
+            <Text style={styles.totalValue}>{formatPrice(service.price.total)}원</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.actionButtonOutline]}
+          onPress={() => navigation.navigate('PartSelection', { serviceId: service.id })}
+        >
+          <Text style={styles.actionButtonOutlineText}>부품 추가</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Payment', { serviceId: service.id })}
+        >
+          <Text style={styles.actionButtonText}>결제 처리</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // 타임라인 탭
+  const renderTimelineTab = () => (
+    <View style={styles.tabContent}>
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>작업 타임라인</Text>
+        {service.timeline.map((event, index) => (
+          <View key={index} style={styles.timelineItem}>
+            <View style={styles.timelineLeft}>
+              <View style={styles.timelineDot} />
+              {index !== service.timeline.length - 1 && <View style={styles.timelineLine} />}
+            </View>
+            <View style={styles.timelineRight}>
+              <Text style={styles.timelineTime}>{event.time}</Text>
+              <Text style={styles.timelineDesc}>{event.description}</Text>
+            </View>
+          </View>
+        ))}
+        {service.status === 'in-progress' && (
+          <View style={styles.timelineItem}>
+            <View style={styles.timelineLeft}>
+              <View style={[styles.timelineDot, styles.timelineDotEstimated]} />
+            </View>
+            <View style={styles.timelineRight}>
+              <Text style={[styles.timelineTime, styles.timelineTimeEstimated]}>
+                {service.estimatedCompletionTime} (예상)
+              </Text>
+              <Text style={styles.timelineDesc}>작업 완료 예정</Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {service.photos.length > 0 && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>작업 사진</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+            {service.photos.map(photo => (
+              <View key={photo.id} style={styles.photoContainer}>
+                <Image
+                  source={{ uri: 'https://via.placeholder.com/150' }} // 실제 사진 URL이 없는 경우 대체
+                  style={styles.photo}
+                  resizeMode="cover"
+                />
+                <Text style={styles.photoDesc}>{photo.description}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.actionButtonOutline]}
+          onPress={() => navigation.navigate('CameraScreen', { serviceId: service.id })}
+        >
+          <Text style={styles.actionButtonOutlineText}>사진 추가</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('UpdateStatus', { serviceId: service.id })}
+        >
+          <Text style={styles.actionButtonText}>상태 업데이트</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#2c3e50" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>작업 상세</Text>
+        <TouchableOpacity onPress={() => {}}>
+          <Icon name="dots-vertical" size={24} color="#2c3e50" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.statusHeader}>
+        <View style={[styles.statusContainer, { backgroundColor: getStatusColor(service.status) }]}>
+          <Text style={styles.statusHeaderText}>{getStatusText(service.status)}</Text>
+        </View>
+        <Text style={styles.statusTimeText}>
+          입고 시간: {service.checkInTime} •
+          {service.status === 'in-progress' ? ` 완료 예정: ${service.estimatedCompletionTime}` : ''}
+        </Text>
+      </View>
+
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'details' && styles.activeTabItem]}
+          onPress={() => setActiveTab('details')}
+        >
+          <Text style={[styles.tabText, activeTab === 'details' && styles.activeTabText]}>
+            상세 정보
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'parts' && styles.activeTabItem]}
+          onPress={() => setActiveTab('parts')}
+        >
+          <Text style={[styles.tabText, activeTab === 'parts' && styles.activeTabText]}>
+            부품 & 결제
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'timeline' && styles.activeTabItem]}
+          onPress={() => setActiveTab('timeline')}
+        >
+          <Text style={[styles.tabText, activeTab === 'timeline' && styles.activeTabText]}>
+            타임라인
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {renderTabContent()}
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  statusHeader: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  statusContainer: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  statusHeaderText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  statusTimeText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTabItem: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#3498db',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  activeTabText: {
+    color: '#3498db',
+    fontWeight: '500',
+  },
+  content: {
+    flex: 1,
+  },
+  tabContent: {
+    padding: 16,
+  },
+  sectionContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 16,
+  },
+  customerInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ebf5fb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  customerInfo: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  customerDetail: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 2,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  infoItem: {
+    flex: 1,
+  },
+  infoFullItem: {
+    flex: 2,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#2c3e50',
+  },
+  serviceItem: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 12,
+  },
+  serviceItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  serviceItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  serviceItemDesc: {
+    fontSize: 14,
+    color: '#2c3e50',
+    marginBottom: 8,
+  },
+  serviceItemFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#edf0f2',
+    paddingTop: 8,
+  },
+  serviceItemFooterText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  recommendedItem: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f39c12',
+  },
+  recommendedItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  recommendedItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
+  urgencyBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  urgencyText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  recommendedItemDesc: {
+    fontSize: 14,
+    color: '#2c3e50',
+    marginBottom: 8,
+  },
+  recommendedItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#edf0f2',
+    paddingTop: 8,
+  },
+  recommendedItemFooterText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  recommendButton: {
+    backgroundColor: '#f39c12',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  recommendButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  notesContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    padding: 12,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#2c3e50',
+  },
+  partItem: {
+    paddingVertical: 12,
+  },
+  partItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  partInfo: {
+    flexDirection: 'column',
+  },
+  partName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  partDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  partQuantity: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  partTotal: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2c3e50',
+  },
+  priceContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    padding: 12,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: '#2c3e50',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: '#2c3e50',
+  },
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  actionButtonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#3498db',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  actionButtonOutlineText: {
+    color: '#3498db',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  timelineLeft: {
+    width: 24,
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#3498db',
+  },
+  timelineDotEstimated: {
+    backgroundColor: '#bdc3c7',
+    borderWidth: 1,
+    borderColor: '#95a5a6',
+    borderStyle: 'dashed',
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#3498db',
+    marginVertical: 4,
+  },
+  timelineRight: {
+    flex: 1,
+    paddingLeft: 16,
+  },
+  timelineTime: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 2,
+  },
+  timelineTimeEstimated: {
+    color: '#7f8c8d',
+  },
+  timelineDesc: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  photoScroll: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  photoContainer: {
+    marginRight: 12,
+    width: 150,
+  },
+  photo: {
+    width: 150,
+    height: 100,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  photoDesc: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+});
+
+export default ServiceDetailScreen;

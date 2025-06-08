@@ -1,0 +1,61 @@
+# EAS Build ignore file for monorepo optimization
+
+# Ignore other apps in the monorepo
+../../apps/delivery-driver/
+../../apps/workshop-mobile/
+../../apps/smart-car-assistant/
+../../apps/workshop-web/
+
+# Ignore backend services
+../../backend/
+
+# Ignore unnecessary package directories
+../../packages/ui/node_modules/
+../../packages/ui/dist/
+../../packages/ui/storybook-static/
+
+# Ignore test and development files
+**/*.test.*
+**/*.spec.*
+**/test/
+**/tests/
+**/__tests__/
+**/coverage/
+**/.nyc_output/
+
+# Ignore documentation
+**/docs/
+**/*.md
+!README.md
+
+# Ignore development files
+**/.env.local
+**/.env.development
+**/.env.test
+**/jest.config.*
+**/vitest.config.*
+
+# Ignore build artifacts
+**/dist/
+**/build/
+**/.next/
+**/.turbo/
+
+# Ignore logs
+**/*.log
+**/logs/
+
+# Ignore temporary files
+**/tmp/
+**/temp/
+**/.cache/
+
+# Ignore IDE files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+
+# Ignore OS files
+**/.DS_Store
+**/Thumbs.db

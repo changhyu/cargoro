@@ -1,0 +1,268 @@
+name: 성능 테스트
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '테스트 환경'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      url:
+        description: '테스트할 URL (기본값 대신 사용)'
+        required: false
+        type: string
+
+env:
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  lighthouse-test:
+    name: Lighthouse 성능 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: 테스트 URL 결정
+        id: urls
+        run: |
+          if [ -n "${{ github.event.inputs.url }}" ]; then
+            echo "TEST_URL=${{ github.event.inputs.url }}" >> $GITHUB_ENV
+          else
+            case "${{ env.ENVIRONMENT }}" in
+              development)
+                echo "TEST_URL=https://dev.cargoro.com" >> $GITHUB_ENV
+                ;;
+              staging)
+                echo "TEST_URL=https://staging.cargoro.com" >> $GITHUB_ENV
+                ;;
+              production)
+                echo "TEST_URL=https://cargoro.com" >> $GITHUB_ENV
+                ;;
+            esac
+          fi
+          
+          echo "테스트 URL: $TEST_URL"
+      
+      - name: Lighthouse CI 설치
+        run: npm install -g @lhci/cli@0.13.x
+      
+      - name: Lighthouse 테스트 실행
+        run: |
+          lhci autorun \
+            --collect.url=$TEST_URL \
+            --collect.numberOfRuns=3 \
+            --collect.settings.preset=desktop \
+            --upload.target=temporary-public-storage
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      
+      - name: 결과 저장
+        uses: actions/upload-artifact@v3
+        with:
+          name: lighthouse-results
+          path: '.lighthouseci'
+          retention-days: 30
+
+  k6-load-test:
+    name: k6 부하 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스코드 체크아웃
+        uses: actions/checkout@v3
+      
+      - name: k6 설치
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+      
+      - name: 테스트 API 엔드포인트 결정
+        id: api-url
+        run: |
+          if [ -n "${{ github.event.inputs.url }}" ]; then
+            echo "API_URL=${{ github.event.inputs.url }}" >> $GITHUB_ENV
+          else
+            case "${{ env.ENVIRONMENT }}" in
+              development)
+                echo "API_URL=https://api.dev.cargoro.com" >> $GITHUB_ENV
+                ;;
+              staging)
+                echo "API_URL=https://api.staging.cargoro.com" >> $GITHUB_ENV
+                ;;
+              production)
+                echo "API_URL=https://api.cargoro.com" >> $GITHUB_ENV
+                ;;
+            esac
+          fi
+          
+          echo "API 테스트 URL: $API_URL"
+      
+      - name: 부하 테스트 실행 (API)
+        run: |
+          k6 run infra/performance/api-load-test.js --out json=results.json --summary-export=summary.json
+        env:
+          K6_BASE_URL: ${{ env.API_URL }}
+      
+      - name: 결과 저장
+        uses: actions/upload-artifact@v3
+        with:
+          name: k6-load-test-results
+          path: |
+            results.json
+            summary.json
+          retention-days: 30
+      
+      - name: 요약 보고서 생성
+        run: |
+          echo "## K6 부하 테스트 요약" >> $GITHUB_STEP_SUMMARY
+          echo "| 메트릭 | 값 |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          
+          HTTP_REQ_RATE=$(jq '.metrics.http_reqs.rate' summary.json)
+          HTTP_REQ_FAILED=$(jq '.metrics.http_req_failed.values.rate' summary.json)
+          HTTP_REQ_DURATION_AVG=$(jq '.metrics.http_req_duration.values.avg' summary.json)
+          HTTP_REQ_DURATION_P95=$(jq '.metrics.http_req_duration.values."p(95)"' summary.json)
+          
+          echo "| 초당 요청 | $HTTP_REQ_RATE |" >> $GITHUB_STEP_SUMMARY
+          echo "| 실패율 | $HTTP_REQ_FAILED |" >> $GITHUB_STEP_SUMMARY
+          echo "| 평균 응답시간 | $(printf "%.2f" $HTTP_REQ_DURATION_AVG) ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| 95% 응답시간 | $(printf "%.2f" $HTTP_REQ_DURATION_P95) ms |" >> $GITHUB_STEP_SUMMARY
+
+  webpagetest:
+    name: WebPageTest 분석
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스코드 체크아웃
+        uses: actions/checkout@v3
+      
+      - name: Node.js 설정
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: WebPageTest CLI 설치
+        run: npm install -g webpagetest-api
+      
+      - name: 테스트 URL 결정
+        id: webpage-url
+        run: |
+          if [ -n "${{ github.event.inputs.url }}" ]; then
+            echo "PAGE_URL=${{ github.event.inputs.url }}" >> $GITHUB_ENV
+          else
+            case "${{ env.ENVIRONMENT }}" in
+              development)
+                echo "PAGE_URL=https://dev.cargoro.com" >> $GITHUB_ENV
+                ;;
+              staging)
+                echo "PAGE_URL=https://staging.cargoro.com" >> $GITHUB_ENV
+                ;;
+              production)
+                echo "PAGE_URL=https://cargoro.com" >> $GITHUB_ENV
+                ;;
+            esac
+          fi
+          
+          echo "웹페이지 테스트 URL: $PAGE_URL"
+      
+      - name: WebPageTest 실행
+        if: ${{ env.WPT_API_KEY != '' }}
+        run: |
+          npx webpagetest test $PAGE_URL \
+            --key ${{ env.WPT_API_KEY }} \
+            --location 'ec2-ap-northeast-2:Chrome' \
+            --connectivity '4G' \
+            --runs 3 \
+            --first \
+            --specs infra/performance/webpagetest-specs.json \
+            --reporter json \
+            > webpagetest-results.json
+        env:
+          WPT_API_KEY: ${{ secrets.WPT_API_KEY }}
+      
+      - name: 결과 저장
+        if: ${{ env.WPT_API_KEY != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: webpagetest-results
+          path: webpagetest-results.json
+          retention-days: 30
+      
+      - name: WebPageTest 결과 생략 (API 키 없음)
+        if: ${{ env.WPT_API_KEY == '' }}
+        run: |
+          echo "WebPageTest API 키가 설정되지 않아 테스트를 건너뜁니다."
+
+  report:
+    name: 성능 보고서 생성
+    needs: [lighthouse-test, k6-load-test, webpagetest]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 테스트 결과 다운로드
+        uses: actions/download-artifact@v3
+        with:
+          path: performance-results
+      
+      - name: 모든 테스트 결과 요약
+        run: |
+          echo "# 🚀 성능 테스트 결과 요약" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## 🌟 테스트 환경: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## 📊 Lighthouse 성능 점수" >> $GITHUB_STEP_SUMMARY
+          if [ -f "performance-results/lighthouse-results/manifest.json" ]; then
+            MANIFEST=$(cat performance-results/lighthouse-results/manifest.json)
+            REPORT_PATH=$(echo $MANIFEST | jq -r '.[(length-1)].jsonPath')
+            REPORT=$(cat "performance-results/lighthouse-results/$REPORT_PATH")
+            
+            PERF_SCORE=$(echo $REPORT | jq '.categories.performance.score * 100')
+            LCP_VALUE=$(echo $REPORT | jq '.audits["largest-contentful-paint"].numericValue / 1000')
+            TTI_VALUE=$(echo $REPORT | jq '.audits["interactive"].numericValue / 1000')
+            
+            echo "| 메트릭 | 값 | 목표 |" >> $GITHUB_STEP_SUMMARY
+            echo "| --- | --- | --- |" >> $GITHUB_STEP_SUMMARY
+            echo "| 성능 점수 | $PERF_SCORE | ≥90 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 최대 콘텐츠풀 페인트 (LCP) | $(printf "%.2f" $LCP_VALUE) 초 | <2.5초 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 상호작용 가능 시간 (TTI) | $(printf "%.2f" $TTI_VALUE) 초 | <3.8초 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Lighthouse 결과를 찾을 수 없습니다." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # 슬랙 메시지 전송
+          if [ -n "${{ env.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "성능 테스트 결과 (${{ env.ENVIRONMENT }})"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Lighthouse 성능 점수:* '$PERF_SCORE'점\n*자세한 결과:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }' ${{ env.SLACK_WEBHOOK_URL }}
+          fi 

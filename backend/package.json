@@ -1,0 +1,21 @@
+{
+  "name": "cargoro-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CarGoro 백엔드 서비스",
+  "scripts": {
+    "test": "python tests/run_tests.py",
+    "test:unit": "python tests/run_tests.py --type unit",
+    "test:integration": "python tests/run_tests.py --type integration",
+    "test:coverage": "python tests/run_tests.py --coverage",
+    "test:unit:coverage": "python tests/run_tests.py --type unit --coverage",
+    "test:integration:coverage": "python tests/run_tests.py --type integration --coverage",
+    "lint": "flake8 services/ database/ shared/",
+    "format": "black services/ database/ shared/ tests/"
+  },
+  "dependencies": {
+    "prisma": "^6.8.2",
+    "@prisma/client": "^6.8.2"
+  },
+  "devDependencies": {}
+}

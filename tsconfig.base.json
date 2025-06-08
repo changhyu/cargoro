@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "typeRoots": ["./node_modules/@types"],
+    "types": [],
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["./app/*"],
+      "@components/*": ["./app/components/*"],
+      "@features/*": ["./app/features/*"],
+      "@hooks/*": ["./app/hooks/*"],
+      "@state/*": ["./app/state/*"],
+      "@services/*": ["./app/services/*"],
+      "@constants/*": ["./app/constants/*"],
+      "@utils/*": ["./app/utils/*"],
+      "@cargoro/ui": ["./packages/ui/index"],
+      "@cargoro/ui/*": ["./packages/ui/*"],
+      "@cargoro/utils": ["./packages/utils/src/index"],
+      "@cargoro/utils/*": ["./packages/utils/src/*"],
+      "@cargoro/types": ["./packages/types/index"],
+      "@cargoro/types/*": ["./packages/types/*"],
+      "@cargoro/api-client": ["./packages/api-client/index"],
+      "@cargoro/api-client/*": ["./packages/api-client/*"],
+      "@cargoro/auth": ["./packages/auth/index"],
+      "@cargoro/auth/*": ["./packages/auth/*"],
+      "@cargoro/analytics": ["./packages/analytics/index"],
+      "@cargoro/analytics/*": ["./packages/analytics/*"],
+      "@cargoro/i18n": ["./packages/i18n/index"],
+      "@cargoro/i18n/*": ["./packages/i18n/*"],
+      "@cargoro/gps-obd-lib": ["./packages/gps-obd-lib/index"],
+      "@cargoro/gps-obd-lib/*": ["./packages/gps-obd-lib/*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"],
+  "exclude": ["node_modules", ".next", "dist", "coverage"]
+}

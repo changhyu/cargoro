@@ -1,0 +1,49 @@
+# 코드 소유자 정의
+# 각 경로에 대한 자동 리뷰어 지정
+
+# 전체 코드베이스 - 팀 리드가 기본 리뷰어
+* @cargoro/team-leads
+
+# 프론트엔드 앱
+/apps/workshop-web/ @cargoro/frontend-team
+/apps/fleet-manager-web/ @cargoro/frontend-team
+/apps/parts-web/ @cargoro/frontend-team
+/apps/superadmin-web/ @cargoro/frontend-team @cargoro/security-team
+
+# 모바일 앱
+/apps/workshop-mobile/ @cargoro/mobile-team
+/apps/delivery-driver/ @cargoro/mobile-team
+/apps/smart-car-assistant/ @cargoro/mobile-team
+
+# 패키지
+/packages/ui/ @cargoro/frontend-team @cargoro/design-team
+/packages/api-client/ @cargoro/frontend-team @cargoro/backend-team
+/packages/auth/ @cargoro/security-team
+/packages/types/ @cargoro/backend-team @cargoro/frontend-team
+
+# 백엔드
+/backend/ @cargoro/backend-team
+/backend/gateway/ @cargoro/backend-team @cargoro/devops-team
+/backend/database/ @cargoro/backend-team @cargoro/dba-team
+
+# 인프라
+/infra/ @cargoro/devops-team
+/.github/ @cargoro/devops-team
+
+# 문서
+/docs/ @cargoro/all-contributors
+README.md @cargoro/team-leads
+
+# 중요 설정 파일 - 팀 리드 승인 필요
+package.json @cargoro/team-leads
+pnpm-lock.yaml @cargoro/team-leads
+tsconfig.json @cargoro/team-leads
+.env.example @cargoro/team-leads @cargoro/security-team
+*.config.js @cargoro/team-leads
+*.config.ts @cargoro/team-leads
+
+# 보안 관련 파일
+**/auth/** @cargoro/security-team
+**/security/** @cargoro/security-team
+**/*secret* @cargoro/security-team
+**/*token* @cargoro/security-team

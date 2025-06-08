@@ -1,0 +1,48 @@
+import { defineWorkspace } from 'vitest/config'
+
+export default defineWorkspace([
+  // 루트 레벨 테스트 구성
+  {
+    test: {
+      globals: true,
+      environment: 'node',
+      name: 'root',
+      include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.{idea,git,cache,output,temp}/**',
+        '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*'
+      ],
+      setupFiles: ['./tests/setup.ts'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+        reportsDirectory: './coverage/root',
+        exclude: [
+          'node_modules/',
+          'tests/',
+          '**/*.d.ts',
+          '**/*.config.*',
+          '**/mockData',
+          '**/mock',
+          'scripts/'
+        ],
+        thresholds: {
+          global: {
+            statements: 80,
+            branches: 80,
+            functions: 80,
+            lines: 80
+          }
+        }
+      }
+    }
+  },
+  // 각 앱 프로젝트 - glob 패턴으로 자동 감지
+  'apps/*/vitest.config.{ts,js,mjs}',
+  // 각 패키지 프로젝트 - glob 패턴으로 자동 감지
+  'packages/*/vitest.config.{ts,js,mjs}',
+  // 백엔드 서비스 - glob 패턴으로 자동 감지
+  'backend/services/*/vitest.config.{ts,js,mjs}'
+])

@@ -1,0 +1,193 @@
+from datetime import datetime
+from enum import Enum
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, validator
+
+
+class SyncStatus(str, Enum):
+    """동기화 상태"""
+
+    PENDING = "pending"  # 대기 중
+    IN_PROGRESS = "in_progress"  # 진행 중
+    COMPLETED = "completed"  # 완료됨
+    FAILED = "failed"  # 실패함
+    PARTIAL = "partial"  # 일부 완료
+
+
+class SyncDirection(str, Enum):
+    """동기화 방향"""
+
+    IMPORT = "import"  # ERP -> 시스템
+    EXPORT = "export"  # 시스템 -> ERP
+    BIDIRECTIONAL = "bidirectional"  # 양방향
+
+
+class ERPSystem(str, Enum):
+    """지원되는 ERP 시스템"""
+
+    SAP = "sap"
+    ORACLE = "oracle"
+    MICROSOFT_DYNAMICS = "microsoft_dynamics"
+    CUSTOM = "custom"
+
+
+class ERPSyncConfigBase(BaseModel):
+    """ERP 동기화 설정 기본 모델"""
+
+    name: str = Field(..., description="설정 이름")
+    erpSystem: ERPSystem = Field(..., description="ERP 시스템 유형")
+    connectionUrl: str = Field(..., description="ERP 연결 URL")
+    username: str = Field(..., description="연결 사용자명")
+    syncDirection: SyncDirection = Field(
+        default=SyncDirection.IMPORT, description="동기화 방향"
+    )
+    syncInterval: Optional[int] = Field(None, description="자동 동기화 간격(분)", ge=5)
+    syncEnabled: bool = Field(default=False, description="자동 동기화 활성화 여부")
+    lastSyncTime: Optional[datetime] = Field(None, description="마지막 동기화 시간")
+    mappingConfig: Dict[str, Any] = Field(
+        default_factory=dict, description="필드 매핑 설정"
+    )
+    filters: Dict[str, Any] = Field(
+        default_factory=dict, description="동기화 필터 설정"
+    )
+    organizationId: str = Field(..., description="조직 ID")
+
+
+class ERPSyncConfigCreate(ERPSyncConfigBase):
+    """ERP 동기화 설정 생성 모델"""
+
+    password: str = Field(..., description="연결 비밀번호")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "SAP 부품 동기화",
+                "erpSystem": "sap",
+                "connectionUrl": "https://sap-api.example.com",
+                "username": "api_user",
+                "password": "api_password",
+                "syncDirection": "import",
+                "syncInterval": 60,
+                "syncEnabled": True,
+                "mappingConfig": {
+                    "part_number": "material_number",
+                    "part_name": "material_description",
+                    "price": "standard_price",
+                },
+                "filters": {
+                    "categories": ["엔진", "브레이크", "전기"],
+                    "status": ["active"],
+                },
+                "organizationId": "org123",
+            }
+        }
+
+
+class ERPSyncConfigUpdate(BaseModel):
+    """ERP 동기화 설정 업데이트 모델"""
+
+    name: Optional[str] = None
+    connectionUrl: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    syncDirection: Optional[SyncDirection] = None
+    syncInterval: Optional[int] = Field(None, ge=5)
+    syncEnabled: Optional[bool] = None
+    mappingConfig: Optional[Dict[str, Any]] = None
+    filters: Optional[Dict[str, Any]] = None
+
+
+class ERPSyncConfigResponse(ERPSyncConfigBase):
+    """ERP 동기화 설정 응답 모델"""
+
+    id: str
+    createdAt: datetime
+    updatedAt: datetime
+    password: Optional[str] = Field(None, exclude=True)
+
+    model_config = {"from_attributes": True}  # Pydantic v2 형식
+
+
+class ERPSyncLogBase(BaseModel):
+    """ERP 동기화 로그 기본 모델"""
+
+    configId: str = Field(..., description="동기화 설정 ID")
+    status: SyncStatus = Field(..., description="동기화 상태")
+    startTime: datetime = Field(..., description="시작 시간")
+    endTime: Optional[datetime] = Field(None, description="종료 시간")
+    direction: SyncDirection = Field(..., description="동기화 방향")
+    totalItems: Optional[int] = Field(None, description="전체 항목 수")
+    processedItems: Optional[int] = Field(None, description="처리된 항목 수")
+    successItems: Optional[int] = Field(None, description="성공한 항목 수")
+    failedItems: Optional[int] = Field(None, description="실패한 항목 수")
+    errorDetails: Optional[str] = Field(None, description="오류 상세 정보")
+    organizationId: str = Field(..., description="조직 ID")
+
+
+class ERPSyncLogCreate(ERPSyncLogBase):
+    """ERP 동기화 로그 생성 모델"""
+
+    pass
+
+
+class ERPSyncLogUpdate(BaseModel):
+    """ERP 동기화 로그 업데이트 모델"""
+
+    status: Optional[SyncStatus] = None
+    endTime: Optional[datetime] = None
+    totalItems: Optional[int] = None
+    processedItems: Optional[int] = None
+    successItems: Optional[int] = None
+    failedItems: Optional[int] = None
+    errorDetails: Optional[str] = None
+
+
+class ERPSyncLogResponse(ERPSyncLogBase):
+    """ERP 동기화 로그 응답 모델"""
+
+    id: str
+    createdAt: datetime
+    updatedAt: datetime
+
+    model_config = {"from_attributes": True}  # Pydantic v2 형식
+
+
+class SyncDataRequest(BaseModel):
+    """데이터 동기화 요청 모델"""
+
+    configId: str = Field(..., description="동기화 설정 ID")
+    direction: Optional[SyncDirection] = Field(
+        None, description="동기화 방향 (설정값 오버라이드)"
+    )
+    filters: Optional[Dict[str, Any]] = Field(
+        None, description="추가 필터 (설정값에 병합)"
+    )
+
+
+class SyncDataResponse(BaseModel):
+    """데이터 동기화 응답 모델"""
+
+    syncLogId: str = Field(..., description="생성된 동기화 로그 ID")
+    status: SyncStatus = Field(..., description="동기화 상태")
+    message: str = Field(..., description="상태 메시지")
+    details: Optional[Dict[str, Any]] = Field(None, description="추가 상세 정보")
+
+
+class ERPSyncConfigListResponse(BaseModel):
+    """ERP 동기화 설정 목록 응답"""
+
+    items: List[ERPSyncConfigResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int
+
+
+class ERPSyncLogListResponse(BaseModel):
+    """ERP 동기화 로그 목록 응답"""
+
+    items: List[ERPSyncLogResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int

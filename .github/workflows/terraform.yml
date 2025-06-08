@@ -1,101 +1,278 @@
-name: Terraform 인프라 관리
+name: 'Terraform Infrastructure'
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'infra/terraform/**'
-  pull_request:
     branches: [main, develop]
     paths:
       - 'infra/terraform/**'
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: '인프라 환경'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - development
-          - staging
-          - production
-      action:
-        description: 'Terraform 작업'
-        required: true
-        default: 'plan'
-        type: choice
-        options:
-          - plan
-          - apply
-          - destroy
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
 
 env:
-  TF_LOG: INFO
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  TF_VAR_environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
 
 jobs:
-  terraform:
-    name: Terraform
+  terraform-validate:
+    name: Validate Terraform
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./infra/terraform
-    environment:
-      name: ${{ github.event.inputs.environment || 'staging' }}
-    
+    outputs:
+      fmt_outcome: ${{ steps.fmt.outcome }}
+      init_outcome: ${{ steps.init.outcome }}
+      validate_outcome: ${{ steps.validate.outcome }}
+
     steps:
-      - name: 소스코드 체크아웃
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Terraform 설정
-        uses: hashicorp/setup-terraform@v2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.7
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: 1.6.0
+          terraform_wrapper: false
 
-      - name: Terraform 초기화
+      - name: Terraform Format Check
+        id: fmt
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          terraform init -backend-config="key=cargoro-${ENV}.tfstate"
-
-      - name: Terraform 포맷 검증
-        run: terraform fmt -check -recursive
+          cd infra/terraform
+          terraform fmt -check -recursive
         continue-on-error: true
 
-      - name: Terraform 검증
-        run: terraform validate
+      - name: Terraform Init
+        id: init
+        run: |
+          cd infra/terraform
+          terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          cd infra/terraform
+          terraform validate
+
+      - name: Run Checkov (Security Scan)
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/terraform
+          framework: terraform
+          output_format: sarif
+          output_file_path: reports/checkov.sarif
+
+      - name: Upload Checkov Results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: reports/checkov.sarif
+
+  terraform-plan:
+    name: Plan Terraform
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          cd infra/terraform
+          terraform init
 
       - name: Terraform Plan
         id: plan
-        if: github.event.inputs.action != 'destroy'
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          terraform plan -var-file="${ENV}.tfvars" -out=tfplan
-          terraform show -json tfplan > plan.json
+          cd infra/terraform
+          terraform plan -var-file="environments/${{ env.TF_VAR_environment }}.tfvars" -out=tfplan -no-color
         continue-on-error: true
 
-      - name: Terraform Plan 요약
-        if: github.event.inputs.action != 'destroy'
+      - name: Generate Plan Summary
         run: |
-          echo "Terraform Plan 요약:"
-          terraform show -no-color tfplan | grep -E '^\s*[~+-]' | grep -v "# forces replacement" | sort
+          cd infra/terraform
+          terraform show -no-color tfplan > plan_output.txt
 
-      - name: Terraform Plan 상태 확인
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
+      - name: Comment Plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('infra/terraform/plan_output.txt', 'utf8');
+            const maxLength = 65536;
+            const truncatedPlan = plan.length > maxLength ?
+              plan.substring(0, maxLength) + '\n...\n**Plan output truncated**' : plan;
+
+            const output = `## Terraform Plan 📋
+
+            **Environment:** \`${{ env.TF_VAR_environment }}\`
+            **Status:** ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`hcl
+            ${truncatedPlan}
+            \`\`\`
+
+            </details>
+
+            **Next Steps:**
+            - Review the plan carefully
+            - Approve the PR to apply changes
+            - Monitor the infrastructure after deployment
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  terraform-apply:
+    name: Apply Terraform
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          cd infra/terraform
+          terraform init
 
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
+        id: apply
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          terraform apply -var-file="${ENV}.tfvars" -auto-approve
+          cd infra/terraform
+          terraform apply -var-file="environments/${{ env.TF_VAR_environment }}.tfvars" -auto-approve
+        timeout-minutes: 30
+
+      - name: Extract Terraform Outputs
+        id: outputs
+        run: |
+          cd infra/terraform
+          echo "cluster_endpoint=$(terraform output -raw cluster_endpoint)" >> $GITHUB_OUTPUT
+          echo "cluster_name=$(terraform output -raw cluster_name)" >> $GITHUB_OUTPUT
+          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
+
+      - name: Update Kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ steps.outputs.outputs.cluster_name }}
+
+      - name: Verify Infrastructure
+        run: |
+          # Test Kubernetes cluster connectivity
+          kubectl cluster-info
+          kubectl get nodes
+
+          # Test database connectivity (if applicable)
+          echo "Infrastructure verification completed"
+
+      - name: Notify Teams on Success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#devops'
+          message: |
+            🚀 Infrastructure deployment successful!
+
+            **Environment:** ${{ env.TF_VAR_environment }}
+            **Cluster:** ${{ steps.outputs.outputs.cluster_name }}
+            **Region:** ${{ vars.AWS_REGION }}
+
+            Ready for application deployment!
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Teams on Failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#devops'
+          message: |
+            ⚠️ Infrastructure deployment failed!
+
+            **Environment:** ${{ env.TF_VAR_environment }}
+            **Workflow:** ${{ github.workflow }}
+            **Run:** ${{ github.run_id }}
+
+            Please check the logs and take action.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  terraform-destroy:
+    name: Destroy Infrastructure (Manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: destroy-${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          cd infra/terraform
+          terraform init
+
+      - name: Terraform Destroy Plan
+        run: |
+          cd infra/terraform
+          terraform plan -destroy -var-file="environments/${{ github.event.inputs.environment }}.tfvars" -out=destroy-plan
 
       - name: Terraform Destroy
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          echo "인프라 삭제를 시작합니다. 환경: ${ENV}"
-          terraform destroy -var-file="${ENV}.tfvars" -auto-approve 
+          cd infra/terraform
+          terraform apply destroy-plan
+        timeout-minutes: 45

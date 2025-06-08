@@ -1,0 +1,1288 @@
+"""
+CarGoro API GraphQL Schema
+통합 API 게이트웨이를 위한 GraphQL 스키마
+"""
+
+# Scalar 타입
+scalar Date
+scalar DateTime
+scalar JSON
+scalar UUID
+
+# 공통 타입
+type Error {
+  code: Int!
+  message: String!
+  details: String
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# User 관련 타입
+enum UserRole {
+  ADMIN
+  WORKSHOP_OWNER
+  WORKSHOP_STAFF
+  CUSTOMER
+  DRIVER
+  FLEET_MANAGER
+  PARTS_MANAGER
+}
+
+type User {
+  id: UUID!
+  email: String!
+  fullName: String!
+  phone: String
+  role: UserRole!
+  organizationId: UUID
+  profileImage: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  organization: Organization
+  vehicles: [Vehicle!]
+  # 추가 관계 (권한 기반 접근)
+  deliveries: [Delivery!]
+}
+
+input UserCreateInput {
+  email: String!
+  password: String!
+  fullName: String!
+  phone: String
+  role: UserRole!
+  organizationId: UUID
+  profileImage: String
+}
+
+input UserUpdateInput {
+  fullName: String
+  phone: String
+  role: UserRole
+  organizationId: UUID
+  profileImage: String
+  isActive: Boolean
+}
+
+# 조직 관련 타입
+type Organization {
+  id: UUID!
+  name: String!
+  type: String!
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  taxId: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  users: [User!]
+  vehicles: [Vehicle!]
+  locations: [Location!]
+  suppliers: [Supplier!]
+}
+
+input OrganizationCreateInput {
+  name: String!
+  type: String!
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  taxId: String
+}
+
+input OrganizationUpdateInput {
+  name: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  taxId: String
+  isActive: Boolean
+}
+
+# 위치 관련 타입
+type Location {
+  id: UUID!
+  organizationId: UUID!
+  name: String!
+  address: String!
+  city: String!
+  state: String
+  zipCode: String
+  country: String!
+  latitude: Float
+  longitude: Float
+  phone: String
+  email: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  organization: Organization!
+  bookings: [Booking!]
+}
+
+input LocationCreateInput {
+  organizationId: UUID!
+  name: String!
+  address: String!
+  city: String!
+  state: String
+  zipCode: String
+  country: String!
+  latitude: Float
+  longitude: Float
+  phone: String
+  email: String
+}
+
+input LocationUpdateInput {
+  name: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  latitude: Float
+  longitude: Float
+  phone: String
+  email: String
+  isActive: Boolean
+}
+
+# 차량 관련 타입
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+  RESERVED
+  IN_USE
+}
+
+type Vehicle {
+  id: UUID!
+  licensePlate: String!
+  make: String!
+  model: String!
+  year: Int!
+  vin: String
+  color: String
+  status: VehicleStatus!
+  mileage: Int!
+  engineType: String!
+  transmission: String!
+  fuelType: String!
+  ownerId: UUID!
+  organizationId: UUID
+  registrationDate: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  owner: User!
+  organization: Organization
+  bookings: [Booking!]
+  maintenanceItems: [MaintenanceItem!]
+  deliveries: [Delivery!]
+}
+
+input VehicleCreateInput {
+  licensePlate: String!
+  make: String!
+  model: String!
+  year: Int!
+  vin: String
+  color: String
+  status: VehicleStatus
+  mileage: Int!
+  engineType: String!
+  transmission: String!
+  fuelType: String!
+  ownerId: UUID!
+  organizationId: UUID
+  registrationDate: DateTime!
+}
+
+input VehicleUpdateInput {
+  licensePlate: String
+  make: String
+  model: String
+  year: Int
+  vin: String
+  color: String
+  status: VehicleStatus
+  mileage: Int
+  engineType: String
+  transmission: String
+  fuelType: String
+  ownerId: UUID
+  organizationId: UUID
+  registrationDate: DateTime
+}
+
+# 예약 관련 타입
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  IN_PROGRESS
+}
+
+type Booking {
+  id: UUID!
+  customerId: UUID!
+  vehicleId: UUID!
+  locationId: UUID!
+  scheduledDateTime: DateTime!
+  status: BookingStatus!
+  serviceType: String!
+  description: String
+  estimatedDuration: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  customer: User!
+  vehicle: Vehicle!
+  location: Location!
+  maintenanceItems: [MaintenanceItem!]
+}
+
+input BookingCreateInput {
+  customerId: UUID!
+  vehicleId: UUID!
+  locationId: UUID!
+  scheduledDateTime: DateTime!
+  status: BookingStatus
+  serviceType: String!
+  description: String
+  estimatedDuration: Int
+}
+
+input BookingUpdateInput {
+  vehicleId: UUID
+  locationId: UUID
+  scheduledDateTime: DateTime
+  status: BookingStatus
+  serviceType: String
+  description: String
+  estimatedDuration: Int
+}
+
+# 정비 항목 관련 타입
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+type MaintenanceItem {
+  id: UUID!
+  bookingId: UUID!
+  vehicleId: UUID!
+  type: String!
+  status: MaintenanceStatus!
+  description: String
+  price: Float
+  startTime: DateTime
+  endTime: DateTime
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # 관계
+  booking: Booking!
+  vehicle: Vehicle!
+  parts: [MaintenancePart!]
+}
+
+input MaintenanceItemCreateInput {
+  bookingId: UUID!
+  vehicleId: UUID!
+  type: String!
+  status: MaintenanceStatus
+  description: String
+  price: Float
+  startTime: DateTime
+  endTime: DateTime
+  notes: String
+}
+
+input MaintenanceItemUpdateInput {
+  type: String
+  status: MaintenanceStatus
+  description: String
+  price: Float
+  startTime: DateTime
+  endTime: DateTime
+  notes: String
+}
+
+# 부품 관련 타입
+enum PartStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+  ORDERED
+}
+
+enum PartType {
+  ENGINE
+  TRANSMISSION
+  BRAKE
+  SUSPENSION
+  ELECTRICAL
+  BODY
+  FLUID
+  OTHER
+}
+
+type Part {
+  id: UUID!
+  part_number: String!
+  name: String!
+  description: String
+  manufacturer: String!
+  part_type: PartType!
+  price: Float!
+  quantity: Int!
+  min_quantity: Int!
+  status: PartStatus!
+  location: String
+  supplier_ids: [String!]!
+  compatible_vehicles: [String!]!
+  image_url: String
+  warranty_period: Int
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  maintenanceParts: [MaintenancePart!]
+  inventoryMovements: [InventoryMovement!]
+  orderItems: [OrderItem!]
+  suppliers: [Supplier!]
+}
+
+input PartCreateInput {
+  part_number: String!
+  name: String!
+  description: String
+  manufacturer: String!
+  part_type: PartType!
+  price: Float!
+  quantity: Int
+  min_quantity: Int
+  status: PartStatus
+  location: String
+  supplier_ids: [String!]
+  compatible_vehicles: [String!]
+  image_url: String
+  warranty_period: Int
+  notes: String
+}
+
+input PartUpdateInput {
+  part_number: String
+  name: String
+  description: String
+  manufacturer: String
+  part_type: PartType
+  price: Float
+  quantity: Int
+  min_quantity: Int
+  status: PartStatus
+  location: String
+  supplier_ids: [String!]
+  compatible_vehicles: [String!]
+  image_url: String
+  warranty_period: Int
+  notes: String
+}
+
+# 정비-부품 연결 관련 타입
+type MaintenancePart {
+  id: UUID!
+  maintenanceId: UUID!
+  partId: UUID!
+  quantity: Int!
+  priceAtTime: Float!
+  createdAt: DateTime!
+  
+  # 관계
+  maintenanceItem: MaintenanceItem!
+  part: Part!
+}
+
+input MaintenancePartCreateInput {
+  maintenanceId: UUID!
+  partId: UUID!
+  quantity: Int!
+  priceAtTime: Float!
+}
+
+# 공급업체 관련 타입
+type Supplier {
+  id: UUID!
+  name: String!
+  contact_person: String!
+  email: String!
+  phone: String!
+  address: String
+  website: String
+  tax_id: String
+  payment_terms: String
+  lead_time_days: Int
+  is_active: Boolean!
+  notes: String
+  organizationId: UUID!
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  organization: Organization!
+  orders: [Order!]
+  parts: [Part!]
+}
+
+input SupplierCreateInput {
+  name: String!
+  contact_person: String!
+  email: String!
+  phone: String!
+  address: String
+  website: String
+  tax_id: String
+  payment_terms: String
+  lead_time_days: Int
+  notes: String
+  organizationId: UUID!
+}
+
+input SupplierUpdateInput {
+  name: String
+  contact_person: String
+  email: String
+  phone: String
+  address: String
+  website: String
+  tax_id: String
+  payment_terms: String
+  lead_time_days: Int
+  is_active: Boolean
+  notes: String
+}
+
+# 주문 관련 타입
+enum OrderStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+type Order {
+  id: UUID!
+  supplier_id: UUID!
+  order_date: DateTime!
+  expected_delivery: DateTime
+  actual_delivery: DateTime
+  status: OrderStatus!
+  shipping_address: String
+  shipping_cost: Float
+  tracking_number: String
+  reference_number: String
+  payment_method: String
+  payment_status: String
+  notes: String
+  total_amount: Float!
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  supplier: Supplier!
+  items: [OrderItem!]
+}
+
+input OrderCreateInput {
+  supplier_id: UUID!
+  order_date: DateTime!
+  expected_delivery: DateTime
+  status: OrderStatus
+  shipping_address: String
+  shipping_cost: Float
+  reference_number: String
+  payment_method: String
+  payment_status: String
+  notes: String
+  total_amount: Float!
+}
+
+input OrderUpdateInput {
+  order_date: DateTime
+  expected_delivery: DateTime
+  actual_delivery: DateTime
+  status: OrderStatus
+  shipping_address: String
+  shipping_cost: Float
+  tracking_number: String
+  reference_number: String
+  payment_method: String
+  payment_status: String
+  notes: String
+  total_amount: Float
+}
+
+# 주문 항목 관련 타입
+type OrderItem {
+  id: UUID!
+  order_id: UUID!
+  part_id: UUID!
+  quantity: Int!
+  unit_price: Float!
+  discount: Float
+  total_price: Float!
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  order: Order!
+  part: Part!
+}
+
+input OrderItemCreateInput {
+  order_id: UUID!
+  part_id: UUID!
+  quantity: Int!
+  unit_price: Float!
+  discount: Float
+  total_price: Float!
+  notes: String
+}
+
+input OrderItemUpdateInput {
+  quantity: Int
+  unit_price: Float
+  discount: Float
+  total_price: Float
+  notes: String
+}
+
+# 재고 이동 관련 타입
+type InventoryMovement {
+  id: UUID!
+  part_id: UUID!
+  quantity: Int!
+  movement_type: String!
+  reference_id: String
+  previous_quantity: Int!
+  new_quantity: Int!
+  unit_cost: Float
+  total_cost: Float
+  reason: String
+  performed_by: String!
+  notes: String
+  created_at: DateTime!
+  
+  # 관계
+  part: Part!
+}
+
+input InventoryMovementCreateInput {
+  part_id: UUID!
+  quantity: Int!
+  movement_type: String!
+  reference_id: String
+  previous_quantity: Int!
+  new_quantity: Int!
+  unit_cost: Float
+  total_cost: Float
+  reason: String
+  performed_by: String!
+  notes: String
+}
+
+# 탁송 관련 타입
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  IN_TRANSIT
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DeliveryType {
+  CUSTOMER_DELIVERY
+  WORKSHOP_TRANSFER
+  DEALER_TRANSFER
+  PURCHASE_PICKUP
+  RETURN_DELIVERY
+}
+
+enum PriorityLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+type Delivery {
+  id: UUID!
+  vehicle_id: UUID!
+  delivery_type: DeliveryType!
+  origin_location: String!
+  destination_location: String!
+  scheduled_date: Date!
+  scheduled_time: String
+  driver_id: UUID
+  status: DeliveryStatus!
+  actual_pickup_time: DateTime
+  actual_delivery_time: DateTime
+  customer_id: UUID
+  contact_person: String
+  contact_phone: String
+  priority: PriorityLevel!
+  notes: String
+  issues: [String!]!
+  estimated_distance: Float
+  estimated_duration: Int
+  completed_by: String
+  customer_signature: String
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  vehicle: Vehicle!
+  driver: User
+  routePoints: [RoutePoint!]
+  deliveryLogs: [DeliveryLog!]
+}
+
+input DeliveryCreateInput {
+  vehicle_id: UUID!
+  delivery_type: DeliveryType!
+  origin_location: String!
+  destination_location: String!
+  scheduled_date: Date!
+  scheduled_time: String
+  driver_id: UUID
+  customer_id: UUID
+  contact_person: String
+  contact_phone: String
+  priority: PriorityLevel
+  notes: String
+  estimated_distance: Float
+  estimated_duration: Int
+}
+
+input DeliveryUpdateInput {
+  delivery_type: DeliveryType
+  origin_location: String
+  destination_location: String
+  scheduled_date: Date
+  scheduled_time: String
+  driver_id: UUID
+  status: DeliveryStatus
+  contact_person: String
+  contact_phone: String
+  priority: PriorityLevel
+  notes: String
+  estimated_distance: Float
+  estimated_duration: Int
+}
+
+# 탁송 로그 관련 타입
+type DeliveryLog {
+  id: UUID!
+  delivery_id: UUID!
+  status: DeliveryStatus!
+  timestamp: DateTime!
+  logged_by: String!
+  details: String
+  location: String
+  gps_coordinates: JSON
+  
+  # 관계
+  delivery: Delivery!
+}
+
+input DeliveryLogCreateInput {
+  delivery_id: UUID!
+  status: DeliveryStatus!
+  logged_by: String!
+  details: String
+  location: String
+  gps_coordinates: JSON
+}
+
+# 경로 포인트 관련 타입
+type RoutePoint {
+  id: UUID!
+  delivery_id: UUID!
+  sequence: Int!
+  location: String!
+  description: String
+  estimated_arrival_time: DateTime
+  actual_arrival_time: DateTime
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  delivery: Delivery!
+}
+
+input RoutePointCreateInput {
+  delivery_id: UUID!
+  sequence: Int!
+  location: String!
+  description: String
+  estimated_arrival_time: DateTime
+  notes: String
+}
+
+input RoutePointUpdateInput {
+  sequence: Int
+  location: String
+  description: String
+  estimated_arrival_time: DateTime
+  actual_arrival_time: DateTime
+  notes: String
+}
+
+# 탁송 기사 일정 관련 타입
+type DriverSchedule {
+  id: UUID!
+  driver_id: UUID!
+  date: Date!
+  start_time: String!
+  end_time: String!
+  is_available: Boolean!
+  reason: String
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime!
+  
+  # 관계
+  driver: User!
+}
+
+input DriverScheduleCreateInput {
+  driver_id: UUID!
+  date: Date!
+  start_time: String!
+  end_time: String!
+  is_available: Boolean!
+  reason: String
+  notes: String
+}
+
+input DriverScheduleUpdateInput {
+  date: Date
+  start_time: String
+  end_time: String
+  is_available: Boolean
+  reason: String
+  notes: String
+}
+
+# 알림 관련 타입
+enum NotificationStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING_REMINDER
+  BOOKING_CONFIRMATION
+  MAINTENANCE_COMPLETE
+  SYSTEM_ALERT
+  MARKETING
+}
+
+type Notification {
+  id: UUID!
+  userId: UUID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  status: NotificationStatus!
+  data: String
+  createdAt: DateTime!
+  readAt: DateTime
+  
+  # 관계
+  user: User!
+}
+
+input NotificationCreateInput {
+  userId: UUID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  status: NotificationStatus
+  data: String
+}
+
+input NotificationUpdateInput {
+  status: NotificationStatus
+  readAt: DateTime
+}
+
+# 인증 및 세션 관련 타입
+type AuthResponse {
+  user: User!
+  token: String!
+  refreshToken: String
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+# 페이지네이션 입력 타입
+input PaginationInput {
+  first: Int
+  after: String
+  last: Int
+  before: String
+}
+
+# 필터 입력 타입
+input UserFilterInput {
+  role: UserRole
+  organizationId: UUID
+  isActive: Boolean
+  search: String
+}
+
+input OrganizationFilterInput {
+  type: String
+  isActive: Boolean
+  search: String
+}
+
+input VehicleFilterInput {
+  status: VehicleStatus
+  ownerId: UUID
+  organizationId: UUID
+  make: String
+  model: String
+  search: String
+}
+
+input BookingFilterInput {
+  status: BookingStatus
+  customerId: UUID
+  vehicleId: UUID
+  locationId: UUID
+  serviceType: String
+  fromDate: DateTime
+  toDate: DateTime
+}
+
+input PartFilterInput {
+  part_type: PartType
+  status: PartStatus
+  manufacturer: String
+  min_price: Float
+  max_price: Float
+  in_stock_only: Boolean
+  search: String
+}
+
+input SupplierFilterInput {
+  is_active: Boolean
+  organizationId: UUID
+  search: String
+}
+
+input OrderFilterInput {
+  status: OrderStatus
+  supplier_id: UUID
+  fromDate: DateTime
+  toDate: DateTime
+  search: String
+}
+
+input DeliveryFilterInput {
+  status: DeliveryStatus
+  delivery_type: DeliveryType
+  driver_id: UUID
+  vehicle_id: UUID
+  fromDate: Date
+  toDate: Date
+  priority: PriorityLevel
+}
+
+# 연결 및 페이지네이션 타입
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type OrganizationConnection {
+  edges: [OrganizationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type OrganizationEdge {
+  node: Organization!
+  cursor: String!
+}
+
+type VehicleConnection {
+  edges: [VehicleEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type VehicleEdge {
+  node: Vehicle!
+  cursor: String!
+}
+
+type BookingConnection {
+  edges: [BookingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BookingEdge {
+  node: Booking!
+  cursor: String!
+}
+
+type PartConnection {
+  edges: [PartEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PartEdge {
+  node: Part!
+  cursor: String!
+}
+
+type SupplierConnection {
+  edges: [SupplierEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SupplierEdge {
+  node: Supplier!
+  cursor: String!
+}
+
+type OrderConnection {
+  edges: [OrderEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type OrderEdge {
+  node: Order!
+  cursor: String!
+}
+
+type DeliveryConnection {
+  edges: [DeliveryEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DeliveryEdge {
+  node: Delivery!
+  cursor: String!
+}
+
+type DriverScheduleConnection {
+  edges: [DriverScheduleEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DriverScheduleEdge {
+  node: DriverSchedule!
+  cursor: String!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type NotificationEdge {
+  node: Notification!
+  cursor: String!
+}
+
+# 루트 쿼리 타입
+type Query {
+  # 사용자 & 인증
+  me: User
+  user(id: UUID!): User
+  users(
+    pagination: PaginationInput
+    filter: UserFilterInput
+  ): UserConnection!
+  
+  # 조직
+  organization(id: UUID!): Organization
+  organizations(
+    pagination: PaginationInput
+    filter: OrganizationFilterInput
+  ): OrganizationConnection!
+  
+  # 위치
+  location(id: UUID!): Location
+  locations(
+    organizationId: UUID
+    pagination: PaginationInput
+  ): [Location!]!
+  
+  # 차량
+  vehicle(id: UUID!): Vehicle
+  vehicles(
+    pagination: PaginationInput
+    filter: VehicleFilterInput
+  ): VehicleConnection!
+  
+  # 예약
+  booking(id: UUID!): Booking
+  bookings(
+    pagination: PaginationInput
+    filter: BookingFilterInput
+  ): BookingConnection!
+  
+  # 정비 항목
+  maintenanceItem(id: UUID!): MaintenanceItem
+  maintenanceItems(
+    bookingId: UUID!
+    pagination: PaginationInput
+  ): [MaintenanceItem!]!
+  
+  # 부품
+  part(id: UUID!): Part
+  partByPartNumber(part_number: String!): Part
+  parts(
+    pagination: PaginationInput
+    filter: PartFilterInput
+  ): PartConnection!
+  
+  # 공급업체
+  supplier(id: UUID!): Supplier
+  suppliers(
+    pagination: PaginationInput
+    filter: SupplierFilterInput
+  ): SupplierConnection!
+  supplierParts(supplierId: UUID!): [Part!]!
+  
+  # 주문
+  order(id: UUID!): Order
+  orders(
+    pagination: PaginationInput
+    filter: OrderFilterInput
+  ): OrderConnection!
+  orderItems(orderId: UUID!): [OrderItem!]!
+  
+  # 재고 이동
+  inventoryMovements(
+    partId: UUID!
+    fromDate: DateTime
+    toDate: DateTime
+  ): [InventoryMovement!]!
+  
+  # 탁송
+  delivery(id: UUID!): Delivery
+  deliveries(
+    pagination: PaginationInput
+    filter: DeliveryFilterInput
+  ): DeliveryConnection!
+  deliveriesByDriver(
+    driverId: UUID!
+    pagination: PaginationInput
+    filter: DeliveryFilterInput
+  ): DeliveryConnection!
+  deliveriesByVehicle(
+    vehicleId: UUID!
+    pagination: PaginationInput
+    filter: DeliveryFilterInput
+  ): DeliveryConnection!
+  
+  # 탁송 로그
+  deliveryLogs(deliveryId: UUID!): [DeliveryLog!]!
+  
+  # 경로 포인트
+  routePoints(deliveryId: UUID!): [RoutePoint!]!
+  
+  # 기사 일정
+  driverSchedule(id: UUID!): DriverSchedule
+  driverSchedules(
+    driverId: UUID
+    date: Date
+    isAvailable: Boolean
+    pagination: PaginationInput
+  ): DriverScheduleConnection!
+  
+  # 알림
+  notification(id: UUID!): Notification
+  notifications(
+    userId: UUID!
+    status: NotificationStatus
+    type: NotificationType
+    pagination: PaginationInput
+  ): NotificationConnection!
+}
+
+# 루트 뮤테이션 타입
+type Mutation {
+  # 인증
+  login(input: LoginInput!): AuthResponse!
+  refreshToken(refreshToken: String!): AuthResponse!
+  logout: Boolean!
+  
+  # 사용자
+  createUser(input: UserCreateInput!): User!
+  updateUser(id: UUID!, input: UserUpdateInput!): User!
+  deleteUser(id: UUID!): Boolean!
+  
+  # 조직
+  createOrganization(input: OrganizationCreateInput!): Organization!
+  updateOrganization(id: UUID!, input: OrganizationUpdateInput!): Organization!
+  deleteOrganization(id: UUID!): Boolean!
+  
+  # 위치
+  createLocation(input: LocationCreateInput!): Location!
+  updateLocation(id: UUID!, input: LocationUpdateInput!): Location!
+  deleteLocation(id: UUID!): Boolean!
+  
+  # 차량
+  createVehicle(input: VehicleCreateInput!): Vehicle!
+  updateVehicle(id: UUID!, input: VehicleUpdateInput!): Vehicle!
+  deleteVehicle(id: UUID!): Boolean!
+  
+  # 예약
+  createBooking(input: BookingCreateInput!): Booking!
+  updateBooking(id: UUID!, input: BookingUpdateInput!): Booking!
+  cancelBooking(id: UUID!): Booking!
+  completeBooking(id: UUID!): Booking!
+  
+  # 정비 항목
+  createMaintenanceItem(input: MaintenanceItemCreateInput!): MaintenanceItem!
+  updateMaintenanceItem(id: UUID!, input: MaintenanceItemUpdateInput!): MaintenanceItem!
+  deleteMaintenanceItem(id: UUID!): Boolean!
+  
+  # 부품
+  createPart(input: PartCreateInput!): Part!
+  updatePart(id: UUID!, input: PartUpdateInput!): Part!
+  deletePart(id: UUID!): Boolean!
+  adjustPartStock(id: UUID!, quantity: Int!, reason: String): Part!
+  
+  # 공급업체
+  createSupplier(input: SupplierCreateInput!): Supplier!
+  updateSupplier(id: UUID!, input: SupplierUpdateInput!): Supplier!
+  deleteSupplier(id: UUID!): Boolean!
+  updateSupplierStatus(id: UUID!, isActive: Boolean!): Supplier!
+  
+  # 주문
+  createOrder(input: OrderCreateInput!): Order!
+  updateOrder(id: UUID!, input: OrderUpdateInput!): Order!
+  deleteOrder(id: UUID!): Boolean!
+  
+  # 주문 항목
+  createOrderItem(input: OrderItemCreateInput!): OrderItem!
+  updateOrderItem(id: UUID!, input: OrderItemUpdateInput!): OrderItem!
+  deleteOrderItem(id: UUID!): Boolean!
+  
+  # 재고 이동
+  createInventoryMovement(input: InventoryMovementCreateInput!): InventoryMovement!
+  
+  # 탁송
+  createDelivery(input: DeliveryCreateInput!): Delivery!
+  updateDelivery(id: UUID!, input: DeliveryUpdateInput!): Delivery!
+  deleteDelivery(id: UUID!): Boolean!
+  assignDriver(id: UUID!, driverId: UUID!): Delivery!
+  updateDeliveryStatus(id: UUID!, status: DeliveryStatus!, details: String): Delivery!
+  completeDelivery(id: UUID!, completedBy: String!, location: String): Delivery!
+  cancelDelivery(id: UUID!, reason: String): Delivery!
+  
+  # 탁송 로그
+  createDeliveryLog(input: DeliveryLogCreateInput!): DeliveryLog!
+  
+  # 경로 포인트
+  createRoutePoint(input: RoutePointCreateInput!): RoutePoint!
+  updateRoutePoint(id: UUID!, input: RoutePointUpdateInput!): RoutePoint!
+  deleteRoutePoint(id: UUID!): Boolean!
+  
+  # 기사 일정
+  createDriverSchedule(input: DriverScheduleCreateInput!): DriverSchedule!
+  updateDriverSchedule(id: UUID!, input: DriverScheduleUpdateInput!): DriverSchedule!
+  deleteDriverSchedule(id: UUID!): Boolean!
+  
+  # 알림
+  createNotification(input: NotificationCreateInput!): Notification!
+  updateNotification(id: UUID!, input: NotificationUpdateInput!): Notification!
+  markNotificationAsRead(id: UUID!): Notification!
+  deleteNotification(id: UUID!): Boolean!
+}
+
+# 구독 타입 (실시간 업데이트)
+type Subscription {
+  # 알림
+  notificationCreated(userId: UUID!): Notification!
+  
+  # 탁송
+  deliveryUpdated(id: UUID!): Delivery!
+  deliveryDriverAssigned(driverId: UUID!): Delivery!
+  
+  # 재고
+  partStockUpdated(id: UUID!): Part!
+  lowStockAlert: Part!
+} 

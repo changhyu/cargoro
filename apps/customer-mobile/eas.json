@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 16.8.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "node": "22.16.0",
+      "env": {
+        "NODE_ENV": "development",
+        "PNPM_VERSION": "9",
+        "NPM_CONFIG_NODE_LINKER": "hoisted"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "node": "22.16.0",
+      "env": {
+        "NODE_ENV": "production",
+        "PNPM_VERSION": "9",
+        "NPM_CONFIG_NODE_LINKER": "hoisted"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "node": "22.16.0",
+      "env": {
+        "NODE_ENV": "production",
+        "PNPM_VERSION": "9",
+        "NPM_CONFIG_NODE_LINKER": "hoisted"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

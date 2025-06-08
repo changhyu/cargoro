@@ -1,0 +1,46 @@
+name: 커버리지 배지 업데이트
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update-coverage-badge:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: pnpm 설정
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.0
+    
+    - name: Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'pnpm'
+    
+    - name: 의존성 설치
+      run: pnpm install --frozen-lockfile
+    
+    - name: 커버리지 생성
+      run: pnpm test:coverage
+    
+    - name: 커버리지 배지 생성
+      uses: jaywcjlove/coverage-badges-cli@main
+      with:
+        source: coverage/coverage-summary.json
+        output: coverage/badges.svg
+    
+    - name: 배지 커밋
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./coverage
+        publish_branch: coverage-badges
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'

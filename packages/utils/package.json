@@ -1,0 +1,53 @@
+{
+  "name": "@cargoro/utils",
+  "version": "1.0.0",
+  "description": "CarGoro 공통 유틸리티 함수",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./api/createSafeApiClient": {
+      "types": "./dist/api/createSafeApiClient.d.ts",
+      "import": "./dist/api/createSafeApiClient.js",
+      "require": "./dist/api/createSafeApiClient.js"
+    },
+    "./redis": {
+      "types": "./dist/redis.d.ts",
+      "import": "./dist/redis.js",
+      "require": "./dist/redis.js"
+    },
+    "./a11y": {
+      "types": "./dist/a11y/index.d.ts",
+      "import": "./dist/a11y/index.js",
+      "require": "./dist/a11y/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "dev": "tsc --watch --declaration --emitDeclarationOnly --outDir dist",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.20.2",
+    "axios": "^1.7.2",
+    "ioredis": "^5.6.1",
+    "next": "14.2.25",
+    "zod": "^3.25.30"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

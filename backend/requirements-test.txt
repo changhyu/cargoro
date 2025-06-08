@@ -1,0 +1,16 @@
+# 백엔드 테스트 필수 패키지
+pytest
+pytest-cov
+pytest-asyncio
+fastapi
+uvicorn
+httpx
+pydantic
+prisma
+python-decouple
+python-dotenv
+python-jose
+python-multipart
+pyjwt
+passlib
+cryptography

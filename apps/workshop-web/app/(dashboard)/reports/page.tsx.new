@@ -1,0 +1,31 @@
+'use client';
+
+import React from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@cargoro/ui';
+
+export default function ReportsPage() {
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">보고서</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>보고서 기능 준비 중</CardTitle>
+          <CardDescription>
+            보고서 기능은 현재 개발 중이며 곧 제공될 예정입니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>CarGoro 보고서 시스템이 준비되면 다음과 같은 기능을 이용할 수 있습니다:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>워크숍 활동 월간 보고서</li>
+            <li>고객별 정비 이력 보고서</li>
+            <li>부품 사용 현황 분석</li>
+            <li>작업 효율성 보고서</li>
+            <li>맞춤형 보고서 템플릿</li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

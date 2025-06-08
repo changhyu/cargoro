@@ -1,0 +1,8 @@
+# 앱 폴더 구조 일관성 검사
+
+다음 앱에서 규정된 폴더 구조를 완전히 따르지 않고 있습니다:
+
+- parts-web: 폴더 순서가 권장 순서(pages, components, features, hooks, state, services, constants)와 일치하지 않습니다.
+- superadmin-web: 폴더 순서가 권장 순서(pages, components, features, hooks, state, services, constants)와 일치하지 않습니다.
+- workshop-web: 폴더 순서가 권장 순서(pages, components, features, hooks, state, services, constants)와 일치하지 않습니다.
+- fleet-manager-web: 폴더 순서가 권장 순서(pages, components, features, hooks, state, services, constants)와 일치하지 않습니다.

@@ -1,0 +1,16 @@
+# API 응답 형식 불일치 의심 파일
+
+다음 파일들에서 표준 API 응답 형식을 사용하지 않는 것으로 의심됩니다:
+
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/fleet-api/main.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/fleet-api/routes/vehicle_routes.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/delivery-api/main.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/parts-api/main.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/auth_service.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/server.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/app.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/main.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/routes/auth_routes.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/core-api/routes/permission_routes.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/repair-api/main.py
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/admin-api/main.py

@@ -1,0 +1,108 @@
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+
+class EmergencyContact(BaseModel):
+    """비상 연락처 모델"""
+
+    name: str = Field(..., description="비상 연락처 이름")
+    phone: str = Field(..., description="비상 연락처 전화번호")
+    relationship: str = Field(..., description="비상 연락처 관계")
+
+
+class DriverBase(BaseModel):
+    """운전자 기본 모델"""
+
+    name: str = Field(..., description="운전자 이름")
+    email: EmailStr = Field(..., description="운전자 이메일")
+    phone: str = Field(..., description="운전자 전화번호")
+    licenseNumber: str = Field(..., description="운전 면허 번호")
+    licenseType: Optional[str] = Field(None, description="운전 면허 종류")
+    licenseExpiry: datetime = Field(..., description="운전 면허 만료일")
+
+
+class DriverCreate(DriverBase):
+    """운전자 생성 모델"""
+
+    organizationId: str = Field(..., description="소속 조직 ID")
+    isActive: bool = Field(True, description="활성 상태 여부")
+    restrictions: Optional[List[str]] = Field(None, description="운전 제한사항")
+    notes: Optional[str] = Field(None, description="비고")
+    emergencyContact: Optional[EmergencyContact] = Field(
+        None, description="비상 연락처"
+    )
+    address: Optional[str] = Field(None, description="주소")
+    birthDate: Optional[datetime] = Field(None, description="생년월일")
+    hireDate: Optional[datetime] = Field(None, description="입사일")
+    department: Optional[str] = Field(None, description="부서")
+    position: Optional[str] = Field(None, description="직책")
+    profileImageUrl: Optional[str] = Field(None, description="프로필 이미지 URL")
+
+
+class DriverUpdate(BaseModel):
+    """운전자 업데이트 모델"""
+
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    licenseNumber: Optional[str] = None
+    licenseType: Optional[str] = None
+    licenseExpiry: Optional[datetime] = None
+    isActive: Optional[bool] = None
+    restrictions: Optional[List[str]] = None
+    notes: Optional[str] = None
+    emergencyContact: Optional[EmergencyContact] = None
+    address: Optional[str] = None
+    birthDate: Optional[datetime] = None
+    hireDate: Optional[datetime] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    profileImageUrl: Optional[str] = None
+    organizationId: Optional[str] = None
+
+
+class DriverResponse(DriverBase):
+    """운전자 응답 모델"""
+
+    id: str
+    organizationId: str
+    isActive: bool
+    restrictions: Optional[List[str]] = None
+    notes: Optional[str] = None
+    assignedVehicles: Optional[List[str]] = None
+    emergencyContact: Optional[EmergencyContact] = None
+    address: Optional[str] = None
+    birthDate: Optional[datetime] = None
+    hireDate: Optional[datetime] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    profileImageUrl: Optional[str] = None
+    createdAt: datetime
+    updatedAt: datetime
+
+    model_config = {"from_attributes": True}  # Pydantic v2 형식
+
+
+class DriverFilters(BaseModel):
+    """운전자 필터링 옵션"""
+
+    name: Optional[str] = None
+    email: Optional[str] = None
+    licenseNumber: Optional[str] = None
+    isActive: Optional[bool] = None
+    organizationId: Optional[str] = None
+    licenseExpiryBefore: Optional[datetime] = None
+    licenseExpiryAfter: Optional[datetime] = None
+    page: int = Field(1, ge=1, description="페이지 번호")
+    pageSize: int = Field(10, ge=1, le=100, description="페이지 크기")
+
+
+class DriverListResponse(BaseModel):
+    """운전자 목록 응답"""
+
+    items: List[DriverResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int

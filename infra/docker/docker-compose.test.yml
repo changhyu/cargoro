@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 테스트 데이터베이스
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: cargoro-test-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    ports:
+      - '5433:5432' # 메인 DB와 충돌을 피하기 위해 다른 포트 사용
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis 테스트 캐시 서버
+  redis-test:
+    image: redis:7-alpine
+    container_name: cargoro-test-redis
+    ports:
+      - '6380:6379' # 메인 Redis와 충돌을 피하기 위해 다른 포트 사용
+    volumes:
+      - redis-test-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ 테스트 메시지 브로커
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    container_name: cargoro-test-rabbitmq
+    ports:
+      - '5673:5672' # AMQP - 메인과 충돌을 피하기 위해 다른 포트 사용
+      - '15673:15672' # 관리자 UI - 메인과 충돌을 피하기 위해 다른 포트 사용
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq-test-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmqctl', 'status']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-test-data:
+  redis-test-data:
+  rabbitmq-test-data:

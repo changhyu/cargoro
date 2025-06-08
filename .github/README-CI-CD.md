@@ -7,6 +7,7 @@
 **워크플로우 파일:** `.github/workflows/ci.yml`
 
 주요 기능:
+
 - 코드 품질 검사 (ESLint)
 - 타입스크립트 타입 검사
 - 유닛 테스트 실행 (Vitest)
@@ -15,6 +16,7 @@
 - 프로젝트 빌드
 
 실행 조건:
+
 - `main` 또는 `develop` 브랜치에 푸시
 - `main` 또는 `develop` 브랜치로의 PR
 
@@ -27,11 +29,13 @@
 **워크플로우 파일:** `.github/workflows/cd.yml`
 
 주요 기능:
+
 - Docker 이미지 빌드 및 GitHub Container Registry 푸시
 - Helm 차트를 이용한 Kubernetes 배포
 - 배포 후 상태 확인
 
 실행 조건:
+
 - `main` 브랜치에 푸시
 - 수동 실행(환경 선택 가능):
   - development
@@ -54,11 +58,13 @@
 **워크플로우 파일:** `.github/workflows/terraform.yml`
 
 주요 기능:
+
 - AWS 인프라 변경 검증(plan)
 - 인프라 변경 적용(apply)
 - 인프라 삭제(destroy)
 
 실행 조건:
+
 - `infra/terraform/**` 경로의 파일 변경 시
 - 수동 실행 (작업 및 환경 선택)
 
@@ -67,11 +73,13 @@
 **워크플로우 파일:** `.github/workflows/dependency-check.yml`
 
 주요 기능:
+
 - JavaScript 패키지 취약점 검사 (pnpm audit)
 - Python 패키지 취약점 검사 (safety)
 - Docker 이미지 취약점 검사 (Trivy)
 
 실행 조건:
+
 - 매주 월요일 자동 실행
 - 의존성 관련 파일 변경 시
 
@@ -80,10 +88,12 @@
 워크플로우 실행을 위해 다음 시크릿이 필요합니다:
 
 ### CD 배포용
+
 - `KUBECONFIG`: Kubernetes 클러스터 접근 설정
 - `GITHUB_TOKEN`: GitHub Container Registry 접근용
 
 ### Terraform용
+
 - `AWS_ACCESS_KEY_ID`: AWS 액세스 키
 - `AWS_SECRET_ACCESS_KEY`: AWS 시크릿 키
 - `AWS_REGION`: AWS 리전
@@ -111,4 +121,4 @@
 2. Kubernetes 로그 확인: `kubectl logs -n cargoro-<환경> <pod-name>`
 3. Helm 상태 확인: `helm list -n cargoro-<환경>`
 
-더 자세한 문제 해결은 [Kubernetes 배포 가이드](../infra/k8s/README.md)를 참조하세요. 
+더 자세한 문제 해결은 [Kubernetes 배포 가이드](../infra/k8s/README.md)를 참조하세요.

@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# 패키지 기본 디렉토리 구조 생성
+mkdir -p app
+mkdir -p app/types
+mkdir -p app/utils
+mkdir -p app/components
+mkdir -p app/hooks
+mkdir -p app/constants
+mkdir -p tests
+
+# 기본 파일 생성
+touch app/index.ts
+touch app/types/index.ts
+touch app/utils/.gitkeep
+touch app/components/.gitkeep
+touch app/hooks/.gitkeep
+touch app/constants/.gitkeep
+touch tests/.gitkeep
+
+# 기본 index.ts 파일 생성
+cat > app/index.ts << 'EOF'
+/**
+ * @cargoro/{{PACKAGE_NAME}} 패키지 진입점
+ * 
+ * 이 파일에서 모든 외부 노출 API를 내보냅니다.
+ */
+
+// 타입 내보내기
+export * from './types';
+
+// 컴포넌트 내보내기
+// export * from './components';
+
+// 유틸 내보내기
+// export * from './utils';
+
+// 훅 내보내기
+// export * from './hooks';
+
+// 상수 내보내기
+// export * from './constants';
+EOF
+
+# 기본 타입 정의 작성
+cat > app/types/index.ts << 'EOF'
+/**
+ * @cargoro/{{PACKAGE_NAME}} 타입 정의
+ */
+
+export interface Config {
+  // 기본 설정 타입 예시
+  enabled: boolean;
+  version: string;
+  options?: Record<string, unknown>;
+}
+EOF
+
+# 기본 README.md 생성
+cat > README.md << 'EOF'
+# @cargoro/{{PACKAGE_NAME}}
+
+카고로 프로젝트의 {{PACKAGE_NAME}} 패키지입니다.
+
+## 설치
+
+```bash
+pnpm add @cargoro/{{PACKAGE_NAME}}
+```
+
+## 사용 방법
+
+```tsx
+import { Something } from '@cargoro/{{PACKAGE_NAME}}';
+
+// 사용 예시
+```
+
+## 패키지 구조
+
+```
+app/
+ ├── components/  # UI 컴포넌트 
+ ├── hooks/       # 커스텀 훅
+ ├── utils/       # 유틸리티 함수
+ ├── constants/   # 상수 및 설정값
+ ├── types/       # 타입 정의
+ └── index.ts     # 진입점 및 내보내기
+```
+
+## 제공 기능
+
+- 기능 1
+- 기능 2
+
+## API 문서
+
+자세한 API 문서는 [여기](../../docs/api-specs/{{PACKAGE_NAME}}.md)를 참조하세요.
+EOF
+
+# Vitest 설정 파일 생성
+cat > vitest.setup.ts << 'EOF'
+import '@testing-library/jest-dom/vitest';
+import { expect } from 'vitest';
+import matchers from '@testing-library/jest-dom/matchers';
+
+// Testing Library 매처 확장
+expect.extend(matchers);
+
+// 글로벌 모킹 설정
+vi.mock('./app/utils', () => ({}), { virtual: true });
+
+// 기타 모킹 설정은 여기에 추가
+EOF

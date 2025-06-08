@@ -1,0 +1,16 @@
+# TypeScript any 타입 사용 현황
+
+다음 파일에서 any 타입 사용이 발견되었습니다 (개발 규칙 위반):
+
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/apps/smart-car-assistant/app/providers/auth-provider.tsx
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/apps/smart-car-assistant/app/services/api-client.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/apps/workshop-mobile/app/providers/auth-provider.tsx
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/apps/superadmin-web/app/features/system-audit/hooks/use-audit-logs.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/apps/delivery-driver/app/providers/auth-provider.tsx
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/ui/mocks/empty.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/ui/components/search-filter.tsx
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/ui/components/form.tsx
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/types/dist/index.d.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/types/schema/auth.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/auth/utils/mobile-auth-utils.ts
+/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/packages/auth/hooks/use-auth.test.tsx

@@ -1,0 +1,48 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@pages/*": ["./app/pages/*"],
+      "@components/*": ["./app/components/*"],
+      "@features/*": ["./app/features/*"],
+      "@hooks/*": ["./app/hooks/*"],
+      "@state/*": ["./app/state/*"],
+      "@services/*": ["./app/services/*"],
+      "@constants/*": ["./app/constants/*"],
+      "@utils/*": ["../../packages/utils/app/*"],
+      "@ui/*": ["../../packages/ui/app/*"],
+      "@types/*": ["../../packages/types/app/*"],
+      "@/*": ["./*"],
+      "@app/*": ["./app/*"],
+      "@cargoro/ui": ["../../packages/ui/app/index"],
+      "@cargoro/utils": ["../../packages/utils/app/index"],
+      "@cargoro/types": ["../../packages/types/app/index"],
+      "@cargoro/api-client": ["../../packages/api-client/app/index"],
+      "@cargoro/auth": ["../../packages/auth/app/index"],
+      "@cargoro/analytics": ["../../packages/analytics/app/index"],
+      "@cargoro/i18n": ["../../packages/i18n/app/index"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    ".next/types/**/*.ts",
+    "i18n/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules", 
+    "dist", 
+    ".next", 
+    "coverage", 
+    "e2e", 
+    "tests/**/*.spec.ts", 
+    "tests/**/*.spec.tsx"
+  ]
+}

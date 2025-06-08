@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "jsx": "react-native",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/*"],
+      "@cargoro/ui": ["../../packages/ui"],
+      "@cargoro/ui/*": ["../../packages/ui/*"],
+      "@cargoro/api-client": ["../../packages/api-client"],
+      "@cargoro/types": ["../../packages/types"],
+      "@cargoro/utils": ["../../packages/utils"],
+      "@cargoro/auth": ["../../packages/auth"],
+      "@cargoro/analytics": ["../../packages/analytics"],
+      "@cargoro/gps-obd-lib": ["../../packages/gps-obd-lib"]
+    },
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "types": ["react-native", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "expo-env.d.ts", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "../../packages/**"],
+  "extends": "expo/tsconfig.base"
+}

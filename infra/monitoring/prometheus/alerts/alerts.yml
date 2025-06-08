@@ -1,0 +1,103 @@
+groups:
+  - name: cargoro_alerts
+    interval: 30s
+    rules:
+      # 서비스 다운 알림
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "서비스 다운: {{ $labels.job }}"
+          description: "{{ $labels.instance }}의 {{ $labels.job }} 서비스가 2분 이상 다운되었습니다."
+
+      # 높은 CPU 사용률
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 CPU 사용률: {{ $labels.job }}"
+          description: "{{ $labels.instance }}의 CPU 사용률이 5분 이상 80%를 초과했습니다 (현재: {{ $value }}%)."
+
+      # 메모리 부족
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 메모리 사용률"
+          description: "{{ $labels.instance }}의 메모리 사용률이 85%를 초과했습니다 (현재: {{ $value }}%)."
+
+      # 디스크 공간 부족
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "디스크 공간 부족"
+          description: "{{ $labels.instance }}의 디스크 사용 가능 공간이 10% 미만입니다."
+
+      # API 응답 시간 지연
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 응답 시간 지연: {{ $labels.job }}"
+          description: "{{ $labels.job }}의 95% 응답 시간이 1초를 초과했습니다."
+
+      # 높은 오류율
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job) / sum(rate(http_requests_total[5m])) by (job) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "높은 오류율: {{ $labels.job }}"
+          description: "{{ $labels.job }}의 오류율이 5%를 초과했습니다 (현재: {{ $value }}%)."
+
+      # 데이터베이스 연결 풀 부족
+      - alert: DatabaseConnectionPoolExhausted
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "데이터베이스 연결 풀 부족"
+          description: "PostgreSQL 연결 풀의 80% 이상이 사용 중입니다."
+
+      # Redis 메모리 부족
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 메모리 사용률 높음"
+          description: "Redis 메모리 사용률이 80%를 초과했습니다."
+
+      # Pod 재시작
+      - alert: PodRestartingTooOften
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod 빈번한 재시작: {{ $labels.pod }}"
+          description: "{{ $labels.namespace }}/{{ $labels.pod }} Pod이 지난 1시간 동안 5회 이상 재시작되었습니다."
+
+      # 인증 실패율 높음
+      - alert: HighAuthenticationFailureRate
+        expr: sum(rate(auth_login_failures_total[5m])) / sum(rate(auth_login_attempts_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "높은 인증 실패율"
+          description: "로그인 실패율이 10%를 초과했습니다. 보안 공격일 수 있습니다."

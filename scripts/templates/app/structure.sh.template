@@ -1,0 +1,263 @@
+#!/bin/bash
+
+# 앱 폴더 구조 생성 스크립트
+# 디렉토리 생성 (지정된 순서대로)
+mkdir -p app/pages
+mkdir -p app/components
+mkdir -p app/features
+mkdir -p app/hooks
+mkdir -p app/state
+mkdir -p app/services
+mkdir -p app/constants
+
+# 추가 디렉토리 생성
+mkdir -p i18n
+mkdir -p public
+mkdir -p tests
+mkdir -p app/providers
+mkdir -p app/utils
+
+# 표준 디렉토리에 .gitkeep 파일 추가
+touch app/pages/.gitkeep
+touch app/components/.gitkeep
+touch app/features/.gitkeep
+touch app/hooks/.gitkeep
+touch app/state/.gitkeep
+touch app/services/.gitkeep
+touch app/constants/.gitkeep
+
+# 기타 폴더 및 파일들
+touch i18n/.gitkeep
+touch tests/.gitkeep
+touch app/providers/.gitkeep
+touch app/utils/.gitkeep
+
+# 기본 타입 정의 파일
+echo "/// <reference types=\"next\" />
+/// <reference types=\"next/image-types/global\" />" > next-env.d.ts
+
+# 기본 App 컴포넌트 생성
+cat > app/App.tsx << 'EOF'
+/**
+ * 앱의 메인 컴포넌트
+ *
+ * 모든 앱은 이 표준 구조를 따릅니다:
+ * 1. 필요한 프로바이더 (RootProvider)
+ * 2. 글로벌 스타일 및 테마
+ * 3. 레이아웃 구조
+ */
+import React from 'react';
+import RootProvider from './providers/root-provider';
+
+function App(): React.ReactElement {
+  return (
+    <RootProvider>
+      {/* 앱 콘텐츠 */}
+    </RootProvider>
+  );
+}
+
+export default App;
+EOF
+
+# RootProvider 생성
+mkdir -p app/providers
+cat > app/providers/root-provider.tsx << 'EOF'
+/**
+ * 루트 Provider 컴포넌트
+ *
+ * 이 컴포넌트는 앱에 필요한 모든 Provider들을 래핑합니다:
+ * - 테마/스타일 Provider
+ * - 상태 관리 Provider
+ * - API 클라이언트 Provider
+ * - 인증 Provider
+ * - 국제화(i18n) Provider
+ */
+import React from 'react';
+
+interface RootProviderProps {
+  children: React.ReactNode;
+}
+
+function RootProvider({ children }: RootProviderProps): React.ReactElement {
+  return (
+    <>
+      {/* 여기에 앱에 필요한 Provider들을 추가하세요 */}
+      {children}
+    </>
+  );
+}
+
+export default RootProvider;
+EOF
+
+# 표준 구조에 맞는 README 생성
+cat > app/README.md << 'EOF'
+# 앱 구조 가이드
+
+이 앱은 CarGoro 플랫폼의 표준 앱 구조를 따릅니다:
+
+```
+app/
+ ├── pages/       # 라우팅 페이지 (Next.js) 또는 화면 컴포넌트(RN)
+ ├── components/  # 공통 UI 컴포넌트
+ ├── features/    # 도메인 기능 모듈
+ ├── hooks/       # 커스텀 훅
+ ├── state/       # Zustand 상태 관리
+ ├── services/    # API 호출 및 서비스
+ ├── constants/   # 상수 및 설정값
+ ├── providers/   # 컨텍스트 Provider
+ └── utils/       # 유틸리티 함수
+```
+
+## 개발 가이드라인
+
+1. 폴더 구조를 일관되게 유지하세요.
+2. 새 기능을 추가할 때는 `features/` 폴더에 적절히 모듈화하세요.
+3. UI 컴포넌트는 가능한 한 `@cargoro/ui` 패키지를 재사용하세요.
+4. API 호출은 `services/` 폴더에서 관리하고 React Query로 상태를 처리하세요.
+
+자세한 내용은 [개발 설정 규칙](/개발%20설정%20규칙.md) 문서를 참조하세요.
+EOF
+
+# 필수 문서 파일 생성: README.md
+cat > README.md << 'EOF'
+# CarGoro {{APP_NAME}}
+
+CarGoro 플랫폼의 {{APP_NAME}} 애플리케이션입니다.
+
+## 시작하기
+
+```bash
+# 의존성 설치
+pnpm install
+
+# 개발 서버 실행
+pnpm dev
+```
+
+## 앱 구조
+
+이 앱은 CarGoro 플랫폼의 표준 앱 구조를 따릅니다:
+
+```
+app/
+ ├── pages/       # 라우팅 페이지
+ ├── components/  # 공통 UI 컴포넌트
+ ├── features/    # 도메인 기능 모듈
+ ├── hooks/       # 커스텀 훅
+ ├── state/       # 상태 관리
+ ├── services/    # API 호출 및 서비스
+ ├── constants/   # 상수 및 설정값
+ ├── providers/   # 컨텍스트 Provider
+ └── utils/       # 유틸리티 함수
+```
+
+## 사용 가능한 스크립트
+
+- `pnpm dev`: 개발 서버 실행
+- `pnpm build`: 프로덕션 빌드
+- `pnpm start`: 프로덕션 서버 실행
+- `pnpm test`: 테스트 실행
+
+## 자세한 문서
+
+프로젝트에 대한 자세한 내용은 [CarGoro 플랫폼 문서](/docs)를 참조하세요.
+EOF
+
+# 환경 변수 템플릿
+cat > .env.example << 'EOF'
+# 환경 변수
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_APP_ENV=development
+NEXT_PUBLIC_AUTH_URL=http://localhost:8001/auth
+NEXT_PUBLIC_ANALYTICS_ID=
+EOF
+
+# 모바일 앱 전용 파일 추가 (React Native)
+if [[ "{{APP_NAME}}" == *mobile* || "{{APP_NAME}}" == *driver* || "{{APP_NAME}}" == *assistant* ]]; then
+  # React Native 설정 파일
+  mkdir -p app/navigation
+  cat > app/navigation/index.tsx << 'EOF'
+/**
+ * 앱 네비게이션 설정
+ *
+ * React Navigation을 사용한 앱 라우팅 구조
+ */
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+
+const Stack = createStackNavigator();
+
+// 예시 화면 import (실제 프로젝트에서 구현 필요)
+const HomeScreen = () => <></>;
+
+function AppNavigator(): React.ReactElement {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        {/* 추가 화면은 여기에 등록 */}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default AppNavigator;
+EOF
+
+  # 모바일 앱용 README 내용 수정
+  cat > README.md << 'EOF'
+# CarGoro {{APP_NAME}}
+
+CarGoro 플랫폼의 {{APP_NAME}} 모바일 애플리케이션입니다.
+
+## 시작하기
+
+```bash
+# 의존성 설치
+pnpm install
+
+# 개발 서버 실행 (Expo)
+pnpm start
+
+# iOS 시뮬레이터 실행
+pnpm ios
+
+# Android 에뮬레이터 실행
+pnpm android
+```
+
+## 앱 구조
+
+이 앱은 CarGoro 플랫폼의 표준 앱 구조를 따릅니다:
+
+```
+app/
+ ├── pages/       # 화면 컴포넌트 (이전의 screens/ 대체)
+ ├── components/  # 공통 UI 컴포넌트
+ ├── features/    # 도메인 기능 모듈 (이전의 modules/ 대체)
+ ├── hooks/       # 커스텀 훅
+ ├── state/       # Zustand 상태 관리
+ ├── services/    # API 호출 및 서비스
+ ├── constants/   # 상수 및 설정값
+ ├── navigation/  # React Navigation 설정
+ ├── providers/   # 컨텍스트 Provider
+ └── utils/       # 유틸리티 함수
+```
+
+## 사용 가능한 스크립트
+
+- `pnpm start`: Expo 개발 서버 실행
+- `pnpm ios`: iOS 시뮬레이터 실행
+- `pnpm android`: Android 에뮬레이터 실행
+- `pnpm test`: 테스트 실행
+
+## 자세한 문서
+
+프로젝트에 대한 자세한 내용은 [CarGoro 플랫폼 문서](/docs)를 참조하세요.
+EOF
+fi
+
+echo "앱 구조 생성이 완료되었습니다!"

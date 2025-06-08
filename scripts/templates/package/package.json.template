@@ -1,0 +1,35 @@
+{
+  "name": "@cargoro/{{PACKAGE_NAME}}",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsup app/index.ts --format esm,cjs --dts",
+    "dev": "tsup app/index.ts --format esm,cjs --watch --dts",
+    "lint": "eslint app/**/*.ts* --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rm -rf .turbo node_modules dist coverage"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.57.0",
+    "tsup": "^8.0.1",
+    "typescript": "5.4.5",
+    "vitest": "^3.1.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}

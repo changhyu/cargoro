@@ -1,0 +1,45 @@
+name: 백엔드 테스트 커버리지
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+
+jobs:
+  backend-test-coverage:
+    name: 백엔드 테스트 커버리지
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Python 설정
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: 의존성 설치
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 테스트 실행 및 커버리지 측정
+        run: |
+          cd backend
+          python -m pytest tests/unit --cov=services --cov-report=xml --cov-report=term --cov-fail-under=80
+
+      - name: 커버리지 결과 업로드
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: true

@@ -1,0 +1,231 @@
+# CarGoro Platform Multi-stage Dockerfile
+ARG NODE_VERSION=18
+FROM node:${NODE_VERSION}-alpine AS base
+
+# Build arguments
+ARG ENVIRONMENT=production
+ARG BUILD_DATE
+ARG VCS_REF
+
+# Labels
+LABEL org.opencontainers.image.title="CarGoro Platform"
+LABEL org.opencontainers.image.description="Automotive platform for workshops, fleet management, and delivery services"
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL org.opencontainers.image.revision="${VCS_REF}"
+LABEL org.opencontainers.image.vendor="CarGoro"
+
+# Install system dependencies
+RUN apk add --no-cache libc6-compat && \
+    apk update && \
+    corepack enable
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml turbo.json ./
+COPY apps/*/package.json ./apps/*/
+COPY packages/*/package.json ./packages/*/
+COPY backend/*/package.json ./backend/*/
+
+# Copy pnpm-lock.yaml if it exists, otherwise generate one
+COPY pnpm-lock.yaml* ./
+
+# =====================
+# Dependencies stage
+# =====================
+FROM base AS deps
+
+# Verify pnpm-lock.yaml exists or generate if missing
+RUN if [ ! -f "pnpm-lock.yaml" ]; then \
+      echo "Warning: pnpm-lock.yaml not found, generating..."; \
+      pnpm install --lockfile-only; \
+    fi
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile --prod=false
+
+# =====================
+# Builder stage
+# =====================
+FROM base AS builder
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/*/node_modules ./apps/*/node_modules/
+COPY --from=deps /app/packages/*/node_modules ./packages/*/node_modules/
+COPY --from=deps /app/backend/*/node_modules ./backend/*/node_modules/
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN pnpm prisma generate --filter @cargoro/database
+
+# Build packages first (they are dependencies for apps)
+RUN pnpm build:packages
+
+# Build applications
+RUN pnpm build:apps
+
+# Build backend services
+RUN pnpm build:backend
+
+# =====================
+# Production deps stage
+# =====================
+FROM base AS prod-deps
+
+# Copy package files again for clean install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/*/package.json ./apps/*/
+COPY packages/*/package.json ./packages/*/
+COPY backend/*/package.json ./backend/*/
+
+# Install only production dependencies
+RUN pnpm install --frozen-lockfile --prod=true
+
+# =====================
+# API Gateway runtime
+# =====================
+FROM node:${NODE_VERSION}-alpine AS api-gateway
+
+WORKDIR /app
+
+# Copy production dependencies
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/backend/gateway/node_modules ./backend/gateway/node_modules
+
+# Copy built application
+COPY --from=builder /app/backend/gateway/dist ./backend/gateway/dist
+COPY --from=builder /app/packages/*/dist ./packages/*/dist
+COPY --from=builder /app/backend/database ./backend/database
+
+# Copy runtime files
+COPY backend/gateway/package.json ./backend/gateway/
+COPY tsconfig.base.json ./
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Set permissions
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+EXPOSE 3000
+ENV NODE_ENV=production
+ENV PORT=3000
+
+CMD ["node", "backend/gateway/dist/index.js"]
+
+# =====================
+# Worker runtime
+# =====================
+FROM node:${NODE_VERSION}-alpine AS worker
+
+WORKDIR /app
+
+# Copy production dependencies
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/backend/jobs/node_modules ./backend/jobs/node_modules
+
+# Copy built application
+COPY --from=builder /app/backend/jobs/dist ./backend/jobs/dist
+COPY --from=builder /app/packages/*/dist ./packages/*/dist
+COPY --from=builder /app/backend/database ./backend/database
+
+# Copy runtime files
+COPY backend/jobs/package.json ./backend/jobs/
+COPY tsconfig.base.json ./
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 worker
+
+# Set permissions
+RUN chown -R worker:nodejs /app
+USER worker
+
+ENV NODE_ENV=production
+
+CMD ["node", "backend/jobs/dist/index.js"]
+
+# =====================
+# Web Apps runtime
+# =====================
+FROM node:${NODE_VERSION}-alpine AS web-apps
+
+WORKDIR /app
+
+# Copy production dependencies
+COPY --from=prod-deps /app/node_modules ./node_modules
+
+# Copy built Next.js applications
+COPY --from=builder /app/apps/workshop-web/.next ./apps/workshop-web/.next
+COPY --from=builder /app/apps/fleet-manager-web/.next ./apps/fleet-manager-web/.next
+COPY --from=builder /app/apps/parts-web/.next ./apps/parts-web/.next
+COPY --from=builder /app/apps/superadmin-web/.next ./apps/superadmin-web/.next
+
+# Copy static files and configurations
+COPY --from=builder /app/apps/*/public ./apps/*/public
+COPY --from=builder /app/apps/*/package.json ./apps/*/
+COPY --from=builder /app/apps/*/next.config.js ./apps/*/
+
+# Copy packages
+COPY --from=builder /app/packages/*/dist ./packages/*/dist
+COPY --from=builder /app/packages/*/package.json ./packages/*/
+
+# Copy base configuration
+COPY next.config.js tsconfig.base.json ./
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Set permissions
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+EXPOSE 3000
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Default to workshop-web, can be overridden in deployment
+CMD ["pnpm", "--filter", "workshop-web", "start"]
+
+# =====================
+# Mobile Apps (React Native Metro bundler)
+# =====================
+FROM node:${NODE_VERSION}-alpine AS mobile-apps
+
+WORKDIR /app
+
+# Install Expo CLI
+RUN npm install -g @expo/cli
+
+# Copy production dependencies
+COPY --from=prod-deps /app/node_modules ./node_modules
+
+# Copy mobile applications
+COPY --from=builder /app/apps/workshop-mobile ./apps/workshop-mobile
+COPY --from=builder /app/apps/delivery-driver ./apps/delivery-driver
+COPY --from=builder /app/apps/smart-car-assistant ./apps/smart-car-assistant
+
+# Copy packages
+COPY --from=builder /app/packages/*/dist ./packages/*/dist
+COPY --from=builder /app/packages/*/package.json ./packages/*/
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 expo
+
+# Set permissions
+RUN chown -R expo:nodejs /app
+USER expo
+
+EXPOSE 8081
+ENV NODE_ENV=production
+
+# Default to workshop-mobile, can be overridden
+CMD ["expo", "start", "--non-interactive", "--port", "8081"]

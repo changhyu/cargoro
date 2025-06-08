@@ -1,0 +1,98 @@
+name: 백엔드 테스트 및 커버리지 검증
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  workflow_dispatch: # 수동 실행 옵션
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      # 테스트용 PostgreSQL 서비스
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # 테스트용 Redis 서비스
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Python 설정
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Vehicle 모듈 테스트 및 커버리지 검증
+        run: |
+          cd backend
+          python ./run_tests.py -m vehicle -c -v
+
+      - name: Repair 모듈 테스트 및 커버리지 검증
+        run: |
+          cd backend
+          python ./run_tests.py -m repair -c -v
+
+      - name: 테스트 보고서 아티팩트 업로드
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-coverage-report
+          path: |
+            backend/htmlcov/
+            backend/coverage.xml
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+
+      - name: Run linters
+        run: |
+          cd backend
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check .
+          isort --check-only --profile black .

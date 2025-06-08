@@ -1,0 +1,186 @@
+# Production Environment Values
+global:
+  environment: production
+  domain: cargoro.com
+  image:
+    repository: ghcr.io/cargoro/cargoro
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Production resource limits (optimized for performance)
+  resources:
+    api-gateway:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 2
+        memory: 2Gi
+    worker:
+      requests:
+        cpu: 300m
+        memory: 256Mi
+      limits:
+        cpu: 1
+        memory: 1Gi
+
+# Replica counts for production (high availability)
+replicaCount:
+  apiGateway: 3
+  worker: 2
+  postgres: 3 # Primary + 2 replicas
+  redis: 3 # Redis Sentinel setup
+  rabbitmq: 3 # RabbitMQ cluster
+
+# Database configuration
+postgres:
+  persistence:
+    size: 100Gi
+    storageClass: fast-ssd
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 4
+      memory: 8Gi
+  backup:
+    enabled: true
+    schedule: '0 2 * * *' # Daily at 2 AM
+    retention: '30d'
+
+redis:
+  persistence:
+    size: 20Gi
+    storageClass: fast-ssd
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  sentinel:
+    enabled: true
+
+rabbitmq:
+  persistence:
+    size: 20Gi
+    storageClass: fast-ssd
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  clustering:
+    enabled: true
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/rate-limit: '100'
+    nginx.ingress.kubernetes.io/rate-limit-window: '1m'
+  hosts:
+    - host: api.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: workshop.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: fleet.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: parts.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: admin.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: cargoro-com-tls
+      hosts:
+        - api.cargoro.com
+        - workshop.cargoro.com
+        - fleet.cargoro.com
+        - parts.cargoro.com
+        - admin.cargoro.com
+
+# Auto-scaling
+autoscaling:
+  enabled: true
+  apiGateway:
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  worker:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  enabled: true
+  apiGateway:
+    minAvailable: 2
+  worker:
+    minAvailable: 1
+
+# Security
+security:
+  networkPolicies:
+    enabled: true
+  podSecurityPolicy:
+    enabled: true
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/cargoro-service-role
+
+# Monitoring and logging
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: '30d'
+    storage: 50Gi
+  grafana:
+    enabled: true
+    persistence: true
+    storageSize: 10Gi
+  fluentd:
+    enabled: true
+    elasticsearch:
+      enabled: true
+
+# Environment variables
+env:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  DATABASE_POOL_MAX: 20
+  REDIS_MAX_CONNECTIONS: 50
+
+# Health checks
+healthcheck:
+  enabled: true
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3

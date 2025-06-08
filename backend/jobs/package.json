@@ -1,0 +1,27 @@
+{
+  "name": "cargoro-worker",
+  "version": "1.0.0",
+  "description": "CarGoro 백그라운드 작업 처리 서비스",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p dist && cp -r *.js lib dist/",
+    "start": "node dist/index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.20.2",
+    "amqplib": "^0.10.3",
+    "dotenv": "^16.3.1",
+    "next": "14.1.4",
+    "pg": "^8.11.3",
+    "redis": "^4.6.13"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/amqplib": "^0.10.4",
+    "@types/node": "^20.10.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}

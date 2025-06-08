@@ -1,0 +1,608 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 사용자 및 인증 ====================
+model User {
+  id                String           @id @default(cuid())
+  email             String           @unique
+  name              String
+  password          String?
+  emailVerified     Boolean          @default(false)
+  twoFactorEnabled  Boolean          @default(false)
+  status            UserStatus       @default(ACTIVE)
+  lastLogin         DateTime?
+  lastLoginIp       String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  // Relations
+  role              Role             @relation(fields: [roleId], references: [id])
+  roleId            String
+  userPermissions   UserPermission[]
+  organizations     OrganizationMember[]
+  sessions          UserSession[]
+  activities        UserActivity[]
+  customers         Customer[]
+  repairs           Repair[]
+  invoices          Invoice[]
+  payments          Payment[]
+  auditLogs         AuditLog[]
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Role {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  isSystem    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Relations
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String             @id @default(cuid())
+  name        String
+  resource    String
+  action      String
+  description String?
+  
+  // Relations
+  roles       RolePermission[]
+  users       UserPermission[]
+  
+  @@unique([resource, action])
+}
+
+model RolePermission {
+  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId String
+  
+  @@id([roleId, permissionId])
+}
+
+model UserPermission {
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId String
+  grantedAt    DateTime   @default(now())
+  grantedBy    String
+  
+  @@id([userId, permissionId])
+}
+
+// ==================== 조직 ====================
+model Organization {
+  id           String                @id @default(cuid())
+  name         String
+  type         OrganizationType
+  status       OrganizationStatus    @default(ACTIVE)
+  subscription Json?                 // { plan, status, expiresAt }
+  metadata     Json?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  
+  // Relations
+  members      OrganizationMember[]
+  customers    Customer[]
+  vehicles     Vehicle[]
+  repairs      Repair[]
+  parts        Part[]
+  suppliers    Supplier[]
+}
+
+enum OrganizationType {
+  WORKSHOP
+  FLEET
+  SUPPLIER
+  ADMIN
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model OrganizationMember {
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  role           MemberRole   @default(MEMBER)
+  joinedAt       DateTime     @default(now())
+  
+  @@id([userId, organizationId])
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ==================== 고객 관리 ====================
+model Customer {
+  id               String           @id @default(cuid())
+  name             String
+  email            String
+  phone            String
+  address          String?
+  businessNumber   String?          // 사업자번호
+  customerType     CustomerType
+  notes            String?
+  status           CustomerStatus   @default(ACTIVE)
+  totalSpent       Float            @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  // Relations
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  createdBy        User            @relation(fields: [createdById], references: [id])
+  createdById      String
+  vehicles         Vehicle[]
+  repairs          Repair[]
+  invoices         Invoice[]
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ==================== 차량 관리 ====================
+model Vehicle {
+  id                 String         @id @default(cuid())
+  vehicleNumber      String
+  manufacturer       String
+  model              String
+  year               Int
+  vin                String?        // 차대번호
+  engineType         EngineType
+  color              String?
+  mileage            Int?
+  lastServiceMileage Int?
+  registrationDate   DateTime
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  // Relations
+  customer           Customer?      @relation(fields: [customerId], references: [id])
+  customerId         String?
+  organization       Organization   @relation(fields: [organizationId], references: [id])
+  organizationId     String
+  repairs            Repair[]
+  maintenanceRecords MaintenanceRecord[]
+  locations          VehicleLocation[]
+}
+
+enum EngineType {
+  GASOLINE
+  DIESEL
+  HYBRID
+  ELECTRIC
+}
+
+// ==================== 정비 관리 ====================
+model Repair {
+  id              String         @id @default(cuid())
+  repairNumber    String         @unique
+  description     String
+  status          RepairStatus   @default(PENDING)
+  priority        RepairPriority @default(NORMAL)
+  estimatedCost   Float?
+  actualCost      Float?
+  startDate       DateTime?
+  completedDate   DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  customerId      String
+  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id])
+  vehicleId       String
+  technician      User?          @relation(fields: [technicianId], references: [id])
+  technicianId    String?
+  organization    Organization   @relation(fields: [organizationId], references: [id])
+  organizationId  String
+  statusHistory   RepairStatusHistory[]
+  items           RepairItem[]
+  invoices        Invoice[]
+}
+
+enum RepairStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RepairPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model RepairStatusHistory {
+  id         String       @id @default(cuid())
+  repair     Repair       @relation(fields: [repairId], references: [id])
+  repairId   String
+  fromStatus RepairStatus
+  toStatus   RepairStatus
+  comment    String?
+  changedBy  String
+  changedAt  DateTime     @default(now())
+}
+
+model RepairItem {
+  id          String   @id @default(cuid())
+  repair      Repair   @relation(fields: [repairId], references: [id])
+  repairId    String
+  type        ItemType
+  description String
+  quantity    Float
+  unitPrice   Float
+  amount      Float
+  partId      String?
+}
+
+enum ItemType {
+  SERVICE
+  PART
+  OTHER
+}
+
+// ==================== 부품 관리 ====================
+model Part {
+  id              String       @id @default(cuid())
+  partNumber      String       @unique
+  name            String
+  description     String?
+  manufacturer    String
+  model           String?      // 적용 차종
+  unit            PartUnit
+  currentStock    Float        @default(0)
+  minStock        Float
+  maxStock        Float
+  location        String       // 보관 위치
+  price           Float        // 판매가
+  cost            Float        // 원가
+  barcode         String?
+  imageUrl        String?
+  notes           String?
+  status          PartStatus   @default(ACTIVE)
+  lastRestocked   DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Relations
+  category        PartCategory @relation(fields: [categoryId], references: [id])
+  categoryId      String
+  supplier        Supplier?    @relation(fields: [supplierId], references: [id])
+  supplierId      String?
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId  String
+  stockMovements  StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+}
+
+enum PartUnit {
+  EA
+  SET
+  BOX
+  L
+  KG
+}
+
+enum PartStatus {
+  ACTIVE
+  DISCONTINUED
+  OUT_OF_STOCK
+}
+
+model PartCategory {
+  id          String   @id @default(cuid())
+  name        String
+  parentId    String?
+  description String?
+  
+  // Relations
+  parts       Part[]
+}
+
+// ==================== 재고 이동 ====================
+model StockMovement {
+  id             String         @id @default(cuid())
+  part           Part           @relation(fields: [partId], references: [id])
+  partId         String
+  type           MovementType
+  quantity       Float
+  previousStock  Float
+  newStock       Float
+  reason         String
+  referenceType  String?        // purchase_order, work_order, adjustment
+  referenceId    String?
+  performedBy    String
+  notes          String?
+  createdAt      DateTime       @default(now())
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUST
+}
+
+// ==================== 공급업체 ====================
+model Supplier {
+  id             String          @id @default(cuid())
+  name           String
+  contactPerson  String
+  phone          String
+  email          String
+  address        String?
+  businessNumber String?
+  paymentTerms   String?         // 결제 조건
+  leadTime       Int?            // 리드타임 (일)
+  rating         Float?          // 평가 점수
+  notes          String?
+  status         SupplierStatus  @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  // Relations
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  organizationId String
+  parts          Part[]
+  purchaseOrders PurchaseOrder[]
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ==================== 구매 주문 ====================
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  orderNumber    String              @unique
+  supplier       Supplier            @relation(fields: [supplierId], references: [id])
+  supplierId     String
+  subtotal       Float
+  tax            Float
+  shipping       Float               @default(0)
+  total          Float
+  status         PurchaseOrderStatus @default(DRAFT)
+  orderDate      DateTime            @default(now())
+  expectedDate   DateTime?
+  receivedDate   DateTime?
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  
+  // Relations
+  items          PurchaseOrderItem[]
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  SHIPPED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrderItem {
+  id               String        @id @default(cuid())
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId  String
+  part             Part          @relation(fields: [partId], references: [id])
+  partId           String
+  quantity         Float
+  unitPrice        Float
+  amount           Float
+  receivedQuantity Float?
+}
+
+// ==================== 송장 및 결제 ====================
+model Invoice {
+  id             String         @id @default(cuid())
+  invoiceNumber  String         @unique
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  customerId     String
+  repair         Repair?        @relation(fields: [repairId], references: [id])
+  repairId       String?
+  issueDate      DateTime       @default(now())
+  dueDate        DateTime
+  subtotal       Float
+  tax            Float
+  discount       Float          @default(0)
+  total          Float
+  status         InvoiceStatus  @default(DRAFT)
+  paymentStatus  PaymentStatus  @default(PENDING)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  // Relations
+  createdBy      User           @relation(fields: [createdById], references: [id])
+  createdById    String
+  items          InvoiceItem[]
+  payments       Payment[]
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId   String
+  description String
+  quantity    Float
+  unitPrice   Float
+  amount      Float
+  type        ItemType
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  invoiceId     String
+  amount        Float
+  paymentDate   DateTime      @default(now())
+  paymentMethod PaymentMethod
+  transactionId String?
+  status        PaymentTransactionStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  
+  // Relations
+  processedBy   User          @relation(fields: [processedById], references: [id])
+  processedById String
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  CREDIT
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ==================== 기타 ====================
+model UserSession {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  token         String   @unique
+  ipAddress     String
+  userAgent     String
+  location      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  lastActivityAt DateTime @default(now())
+}
+
+model UserActivity {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ipAddress  String
+  userAgent  String
+  timestamp  DateTime @default(now())
+  
+  @@index([userId, timestamp])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  action     String
+  resource   String
+  resourceId String?
+  changes    Json?
+  ipAddress  String
+  userAgent  String
+  timestamp  DateTime @default(now())
+  
+  @@index([userId, timestamp])
+  @@index([resource, resourceId])
+}
+
+model MaintenanceRecord {
+  id           String   @id @default(cuid())
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId    String
+  type         String   // 정기점검, 엔진오일, 타이어 등
+  description  String
+  mileage      Int
+  cost         Float?
+  performedAt  DateTime
+  nextDueDate  DateTime?
+  nextDueMileage Int?
+  createdAt    DateTime @default(now())
+}
+
+model VehicleLocation {
+  id        String   @id @default(cuid())
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId String
+  latitude  Float
+  longitude Float
+  speed     Float?   // km/h
+  heading   Float?   // 방향 (0-360)
+  altitude  Float?   // 고도
+  accuracy  Float?   // GPS 정확도
+  timestamp DateTime @default(now())
+  
+  @@index([vehicleId, timestamp])
+}
+
+model SystemConfiguration {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  type        String   // string, number, boolean, json
+  category    String
+  description String?
+  isSecret    Boolean  @default(false)
+  isReadonly  Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
+}

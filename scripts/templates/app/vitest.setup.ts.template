@@ -1,0 +1,46 @@
+import '@testing-library/jest-dom/vitest';
+import { expect, afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import matchers from '@testing-library/jest-dom/matchers';
+
+// Testing Library 매처 확장
+expect.extend(matchers);
+
+// 각 테스트 후에 DOM 정리
+afterEach(() => {
+  cleanup();
+});
+
+// 경로 별칭 관련 모킹 설정
+vi.mock('@pages/index', () => ({}), { virtual: true });
+vi.mock('@components/index', () => ({}), { virtual: true });
+vi.mock('@features/index', () => ({}), { virtual: true });
+vi.mock('@hooks/index', () => ({}), { virtual: true });
+vi.mock('@state/index', () => ({}), { virtual: true });
+vi.mock('@services/index', () => ({}), { virtual: true });
+vi.mock('@constants/index', () => ({}), { virtual: true });
+
+// 모킹 기본 설정
+window.matchMedia = window.matchMedia || function() {
+  return {
+    matches: false,
+    addListener: function() {},
+    removeListener: function() {},
+  };
+};
+
+// ResizeObserver 모킹
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// IntersectionObserver 모킹
+global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// 추가 모킹 설정은 여기에 추가

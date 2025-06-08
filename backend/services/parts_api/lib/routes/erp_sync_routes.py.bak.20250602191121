@@ -1,0 +1,616 @@
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Path,
+    status,
+    BackgroundTasks,
+)
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+import math
+import logging
+import json
+from prisma.errors import PrismaError
+
+from ..models.erp_sync_new import (
+    ERPSyncConfigCreate,
+    ERPSyncConfigUpdate,
+    ERPSyncConfigResponse,
+    ERPSyncConfigListResponse,
+    ERPSyncLogCreate,
+    ERPSyncLogUpdate,
+    ERPSyncLogResponse,
+    ERPSyncLogListResponse,
+    SyncDataRequest,
+    SyncDataResponse,
+    SyncStatus,
+    SyncDirection,
+    ERPSystem,
+)
+from ..services.erp_sync_service import ERPSyncService
+from ..utils.auth import get_current_user
+
+# Prisma 클라이언트 초기화
+from prisma import Prisma
+
+db = Prisma()
+
+router = APIRouter(tags=["erp-sync"])
+logger = logging.getLogger(__name__)
+erp_sync_service = ERPSyncService()
+
+
+@router.post(
+    "/erp-sync-configs",
+    response_model=ERPSyncConfigResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_erp_sync_config(
+    config_data: ERPSyncConfigCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    새로운 ERP 동기화 설정을 생성합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 조직 존재 확인
+        organization = await db.organization.find_unique(
+            where={"id": config_data.organizationId}
+        )
+        if not organization:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{config_data.organizationId}'인 조직을 찾을 수 없습니다.",
+            )
+
+        # Pydantic 모델을 dict로 변환하고 필드 매핑 및 필터를 JSON 문자열로 변환
+        config_dict = config_data.model_dump()
+
+        # 필드 변환 - Prisma 스키마에 맞게 enum 타입 처리
+        config_dict["erpSystem"] = config_dict["erpSystem"].upper()
+        config_dict["syncDirection"] = config_dict["syncDirection"].upper()
+
+        # JSON 필드 처리
+        if "mappingConfig" in config_dict:
+            config_dict["mappingConfig"] = json.dumps(config_dict["mappingConfig"])
+
+        if "filters" in config_dict:
+            config_dict["filters"] = json.dumps(config_dict["filters"])
+
+        # 설정 생성
+        new_config = await db.erpsyncconfig.create(data=config_dict)
+
+        # JSON 필드 변환 (응답용)
+        new_config.mappingConfig = json.loads(new_config.mappingConfig)
+        new_config.filters = json.loads(new_config.filters)
+
+        return new_config
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 설정 생성 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 설정 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/erp-sync-configs", response_model=ERPSyncConfigListResponse)
+async def get_erp_sync_configs(
+    organization_id: Optional[str] = Query(None, description="조직 ID로 필터링"),
+    name: Optional[str] = Query(None, description="설정 이름으로 검색"),
+    system: Optional[ERPSystem] = Query(None, description="ERP 시스템 유형으로 필터링"),
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ERP 동기화 설정 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {}
+
+        if organization_id:
+            where_conditions["organizationId"] = organization_id
+
+        if name:
+            where_conditions["name"] = {"contains": name}
+
+        if system:
+            where_conditions["erpSystem"] = system.upper()
+
+        # 전체 레코드 수 조회
+        total_records = await db.erpsyncconfig.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 설정 목록 조회
+        configs = await db.erpsyncconfig.find_many(
+            where=where_conditions,
+            skip=skip,
+            take=page_size,
+            order={"createdAt": "desc"},
+        )
+
+        # JSON 필드 변환
+        for config in configs:
+            config.mappingConfig = json.loads(config.mappingConfig)
+            config.filters = json.loads(config.filters)
+
+        # 응답 구성
+        return {
+            "items": configs,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 설정 목록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 설정 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/erp-sync-configs/{config_id}", response_model=ERPSyncConfigResponse)
+async def get_erp_sync_config(
+    config_id: str = Path(..., description="조회할 ERP 동기화 설정 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ID로 특정 ERP 동기화 설정을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 설정 조회
+        config = await db.erpsyncconfig.find_unique(where={"id": config_id})
+
+        if not config:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{config_id}'인 ERP 동기화 설정을 찾을 수 없습니다.",
+            )
+
+        # JSON 필드 변환
+        config.mappingConfig = json.loads(config.mappingConfig)
+        config.filters = json.loads(config.filters)
+
+        return config
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 설정 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 설정 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.put("/erp-sync-configs/{config_id}", response_model=ERPSyncConfigResponse)
+async def update_erp_sync_config(
+    config_id: str = Path(..., description="수정할 ERP 동기화 설정 ID"),
+    config_data: ERPSyncConfigUpdate = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 ERP 동기화 설정을 업데이트합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 설정 존재 확인
+        existing_config = await db.erpsyncconfig.find_unique(where={"id": config_id})
+
+        if not existing_config:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{config_id}'인 ERP 동기화 설정을 찾을 수 없습니다.",
+            )
+
+        # 업데이트할 데이터 준비
+        update_data = config_data.model_dump(exclude_unset=True)
+
+        # enum 필드 변환
+        if "syncDirection" in update_data:
+            update_data["syncDirection"] = update_data["syncDirection"].upper()
+
+        # JSON 필드 처리
+        if "mappingConfig" in update_data:
+            update_data["mappingConfig"] = json.dumps(update_data["mappingConfig"])
+
+        if "filters" in update_data:
+            update_data["filters"] = json.dumps(update_data["filters"])
+
+        # 설정 업데이트
+        updated_config = await db.erpsyncconfig.update(
+            where={"id": config_id}, data=update_data
+        )
+
+        # JSON 필드 변환 (응답용)
+        updated_config.mappingConfig = json.loads(updated_config.mappingConfig)
+        updated_config.filters = json.loads(updated_config.filters)
+
+        return updated_config
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 설정 업데이트 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 설정 업데이트 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.delete("/erp-sync-configs/{config_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_erp_sync_config(
+    config_id: str = Path(..., description="삭제할 ERP 동기화 설정 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 ERP 동기화 설정을 삭제합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 설정 존재 확인
+        existing_config = await db.erpsyncconfig.find_unique(where={"id": config_id})
+
+        if not existing_config:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{config_id}'인 ERP 동기화 설정을 찾을 수 없습니다.",
+            )
+
+        # 관련 로그 삭제
+        await db.erpsynclog.delete_many(where={"configId": config_id})
+
+        # 설정 삭제
+        await db.erpsyncconfig.delete(where={"id": config_id})
+
+        return None
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 설정 삭제 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 설정 삭제 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/erp-sync-logs", response_model=ERPSyncLogListResponse)
+async def get_erp_sync_logs(
+    config_id: Optional[str] = Query(None, description="설정 ID로 필터링"),
+    organization_id: Optional[str] = Query(None, description="조직 ID로 필터링"),
+    status: Optional[SyncStatus] = Query(None, description="상태로 필터링"),
+    start_date: Optional[datetime] = Query(None, description="시작 날짜로 필터링"),
+    end_date: Optional[datetime] = Query(None, description="종료 날짜로 필터링"),
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ERP 동기화 로그 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {}
+
+        if config_id:
+            where_conditions["configId"] = config_id
+
+        if organization_id:
+            where_conditions["organizationId"] = organization_id
+
+        if status:
+            where_conditions["status"] = status.upper()
+
+        # 날짜 필터
+        if start_date or end_date:
+            where_conditions["startTime"] = {}
+
+            if start_date:
+                where_conditions["startTime"]["gte"] = start_date
+
+            if end_date:
+                where_conditions["startTime"]["lte"] = end_date
+
+        # 전체 레코드 수 조회
+        total_records = await db.erpsynclog.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 로그 목록 조회
+        logs = await db.erpsynclog.find_many(
+            where=where_conditions,
+            skip=skip,
+            take=page_size,
+            order={"startTime": "desc"},
+        )
+
+        # 응답 구성
+        return {
+            "items": logs,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 로그 목록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 로그 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/erp-sync-logs/{log_id}", response_model=ERPSyncLogResponse)
+async def get_erp_sync_log(
+    log_id: str = Path(..., description="조회할 ERP 동기화 로그 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ID로 특정 ERP 동기화 로그를 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 로그 조회
+        log = await db.erpsynclog.find_unique(where={"id": log_id})
+
+        if not log:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{log_id}'인 ERP 동기화 로그를 찾을 수 없습니다.",
+            )
+
+        return log
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 로그 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 로그 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.post("/sync-erp-data", response_model=SyncDataResponse)
+async def sync_erp_data(
+    sync_request: SyncDataRequest,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ERP 시스템과 데이터 동기화를 수행합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 설정 존재 확인
+        config = await db.erpsyncconfig.find_unique(where={"id": sync_request.configId})
+
+        if not config:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{sync_request.configId}'인 ERP 동기화 설정을 찾을 수 없습니다.",
+            )
+
+        # 동기화 방향 결정 (요청 값이 있으면 요청 값 사용, 없으면 설정 값 사용)
+        direction = (
+            sync_request.direction.upper()
+            if sync_request.direction
+            else config.syncDirection
+        )
+
+        # 필터 병합 (요청 필터가 있으면 설정 필터와 병합)
+        merged_filters = json.loads(config.filters)
+        if sync_request.filters:
+            merged_filters.update(sync_request.filters)
+
+        # 동기화 로그 생성
+        sync_log_data = {
+            "configId": config.id,
+            "status": "IN_PROGRESS",
+            "startTime": datetime.now(),
+            "direction": direction,
+            "organizationId": config.organizationId,
+        }
+
+        sync_log = await db.erpsynclog.create(data=sync_log_data)
+
+        # 백그라운드에서 동기화 작업 실행
+        background_tasks.add_task(
+            erp_sync_service.sync_data,
+            config,
+            sync_log.id,
+            direction,
+            merged_filters,
+        )
+
+        # 응답 구성
+        return {
+            "syncLogId": sync_log.id,
+            "status": SyncStatus.IN_PROGRESS,
+            "message": "동기화 작업이 시작되었습니다.",
+            "details": {
+                "configId": config.id,
+                "configName": config.name,
+                "direction": direction,
+            },
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 데이터 동기화 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 데이터 동기화 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/erp-sync-configs/{config_id}/logs", response_model=ERPSyncLogListResponse)
+async def get_logs_for_config(
+    config_id: str = Path(..., description="ERP 동기화 설정 ID"),
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 ERP 동기화 설정에 대한 로그 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 접근 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 설정 존재 확인
+        config = await db.erpsyncconfig.find_unique(where={"id": config_id})
+
+        if not config:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{config_id}'인 ERP 동기화 설정을 찾을 수 없습니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {"configId": config_id}
+
+        # 전체 레코드 수 조회
+        total_records = await db.erpsynclog.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 로그 목록 조회
+        logs = await db.erpsynclog.find_many(
+            where=where_conditions,
+            skip=skip,
+            take=page_size,
+            order={"startTime": "desc"},
+        )
+
+        # 응답 구성
+        return {
+            "items": logs,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ERP 동기화 로그 목록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ERP 동기화 로그 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )

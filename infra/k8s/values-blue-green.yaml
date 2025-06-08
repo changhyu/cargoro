@@ -1,0 +1,158 @@
+# Blue-Green Deployment Values
+# This file is used in conjunction with environment-specific values
+
+blueGreen:
+  enabled: true
+  slot: blue # Current active slot (blue or green)
+
+  # Blue-Green specific settings
+  autoPromote: false # Manual promotion required
+  scaleDownDelay: 30s # Wait before scaling down old version
+
+  # Pre-promotion tests
+  prePromotionAnalysis:
+    enabled: true
+    duration: 10m
+
+    # Health checks
+    healthChecks:
+      - name: api-health
+        url: '/health'
+        expectedStatus: 200
+        timeout: 5s
+        interval: 10s
+
+      - name: database-connectivity
+        url: '/health/db'
+        expectedStatus: 200
+        timeout: 10s
+        interval: 30s
+
+      - name: redis-connectivity
+        url: '/health/redis'
+        expectedStatus: 200
+        timeout: 5s
+        interval: 30s
+
+    # Performance tests
+    performanceTests:
+      - name: load-test
+        duration: 5m
+        virtualUsers: 100
+        rampUp: 30s
+        successCriteria:
+          - metric: response_time_p95
+            threshold: 500ms
+          - metric: error_rate
+            threshold: 1%
+          - metric: throughput
+            threshold: 1000rps
+
+# Service configuration for blue-green
+service:
+  blue:
+    name: cargoro-blue
+    selector:
+      app: cargoro
+      version: blue
+  green:
+    name: cargoro-green
+    selector:
+      app: cargoro
+      version: green
+  preview:
+    name: cargoro-preview
+    type: ClusterIP # Internal only for testing
+
+# Ingress configuration for blue-green
+ingress:
+  production:
+    name: cargoro-production
+    rules:
+      - host: api.cargoro.com
+        backend:
+          serviceName: cargoro-blue # Default to blue
+          servicePort: 80
+  preview:
+    name: cargoro-preview
+    rules:
+      - host: preview.cargoro.com
+        backend:
+          serviceName: cargoro-green # Preview points to inactive slot
+          servicePort: 80
+
+# Traffic management
+traffic:
+  # Immediate switch (no gradual traffic shifting)
+  switchMode: immediate
+
+  # Rollback configuration
+  rollback:
+    enabled: true
+    timeout: 5m
+
+# Smoke tests for blue-green validation
+smokeTests:
+  enabled: true
+  tests:
+    - name: api-endpoints
+      script: |
+        #!/bin/bash
+        curl -f ${PREVIEW_URL}/health || exit 1
+        curl -f ${PREVIEW_URL}/api/v1/status || exit 1
+        echo "API endpoints test passed"
+
+    - name: database-operations
+      script: |
+        #!/bin/bash
+        curl -f -X POST ${PREVIEW_URL}/api/v1/health/db-write-test || exit 1
+        curl -f ${PREVIEW_URL}/api/v1/health/db-read-test || exit 1
+        echo "Database operations test passed"
+
+    - name: authentication
+      script: |
+        #!/bin/bash
+        # Test authentication endpoints
+        curl -f ${PREVIEW_URL}/api/v1/auth/health || exit 1
+        echo "Authentication test passed"
+
+# Monitoring for blue-green
+monitoring:
+  blueGreen:
+    enabled: true
+    dashboards:
+      - name: blue-green-comparison
+        panels:
+          - name: response-time-comparison
+            query: |
+              histogram_quantile(0.95,
+                sum(rate(http_request_duration_seconds_bucket{job=~"cargoro-(blue|green)"}[5m])) by (job, le)
+              )
+          - name: error-rate-comparison
+            query: |
+              sum(rate(http_requests_total{job=~"cargoro-(blue|green)",code=~"5.."}[5m])) by (job) /
+              sum(rate(http_requests_total{job=~"cargoro-(blue|green)"}[5m])) by (job)
+          - name: throughput-comparison
+            query: |
+              sum(rate(http_requests_total{job=~"cargoro-(blue|green)"}[5m])) by (job)
+
+# Alerts specific to blue-green deployment
+alerts:
+  - name: BlueGreenHighErrorRate
+    expr: |
+      (
+        sum(rate(http_requests_total{job=~"cargoro-(blue|green)",code=~"5.."}[5m])) by (job) /
+        sum(rate(http_requests_total{job=~"cargoro-(blue|green)"}[5m])) by (job)
+      ) > 0.05
+    duration: 2m
+    severity: critical
+
+  - name: BlueGreenPerformanceDegradation
+    expr: |
+      (
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{job=~"cargoro-(blue|green)"}[5m])) by (job, le)
+        ) > 1.0
+      )
+    duration: 5m
+    severity: warning

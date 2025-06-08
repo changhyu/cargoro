@@ -1,0 +1,1106 @@
+openapi: 3.0.3
+info:
+  title: CarGoro Delivery API
+  description: |
+    차량 탁송 관리, 기사 배정, 루트 관리 API
+  version: 0.1.0
+  contact:
+    name: CarGoro 개발팀
+    email: dev@cargoro.com
+
+servers:
+  - url: 'https://api.cargoro.com/delivery'
+    description: 운영 환경
+  - url: 'https://api-staging.cargoro.com/delivery'
+    description: 스테이징 환경
+  - url: 'http://localhost:8004'
+    description: 로컬 개발 환경
+
+tags:
+  - name: deliveries
+    description: 탁송 관리
+  - name: drivers
+    description: 탁송 기사 관리
+  - name: routes
+    description: 경로 관리
+  - name: logs
+    description: 이벤트 로그 관리
+
+paths:
+  /deliveries:
+    get:
+      summary: 탁송 목록 조회
+      description: 필터링 옵션으로 탁송 목록을 조회합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Type'
+        - $ref: '#/components/parameters/Priority'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - $ref: '#/components/parameters/DriverID'
+        - $ref: '#/components/parameters/VehicleID'
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 탁송 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 탁송 생성
+      description: 새로운 탁송을 생성합니다.
+      tags:
+        - deliveries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryCreate'
+      responses:
+        '201':
+          description: 생성된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '400':
+          description: 잘못된 요청 (차량 ID 등 필수 필드 누락)
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/by-driver/{driver_id}:
+    get:
+      summary: 기사별 탁송 목록 조회
+      description: 특정 기사에게 배정된 탁송 목록을 조회합니다.
+      tags:
+        - deliveries
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/DriverIDPathParam'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 기사별 탁송 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/by-vehicle/{vehicle_id}:
+    get:
+      summary: 차량별 탁송 목록 조회
+      description: 특정 차량에 대한 탁송 목록을 조회합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/VehicleIDPathParam'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 차량별 탁송 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}:
+    get:
+      summary: 탁송 조회
+      description: ID로 특정 탁송을 조회합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      responses:
+        '200':
+          description: 탁송 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      summary: 탁송 수정
+      description: 특정 탁송의 정보를 수정합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryUpdate'
+      responses:
+        '200':
+          description: 수정된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: 탁송 삭제
+      description: 특정 탁송을 삭제합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      responses:
+        '200':
+          description: 삭제된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/assign:
+    patch:
+      summary: 기사 배정
+      description: 특정 탁송에 기사를 배정합니다.
+      tags:
+        - deliveries
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+        - name: driver_id
+          in: query
+          description: 배정할 기사 ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 기사 배정된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/status:
+    patch:
+      summary: 탁송 상태 변경
+      description: 특정 탁송의 상태를 변경합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+        - name: status
+          in: query
+          description: 변경할 상태
+          required: true
+          schema:
+            $ref: '#/components/schemas/DeliveryStatus'
+        - name: details
+          in: query
+          description: 상태 변경 이유/상세 정보
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 상태 변경된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/complete:
+    patch:
+      summary: 탁송 완료
+      description: 특정 탁송을 완료 처리합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+        - name: completed_by
+          in: query
+          description: 완료 처리자
+          required: true
+          schema:
+            type: string
+        - name: location
+          in: query
+          description: 완료 위치
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 완료 처리된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/cancel:
+    patch:
+      summary: 탁송 취소
+      description: 특정 탁송을 취소 처리합니다.
+      tags:
+        - deliveries
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+        - name: reason
+          in: query
+          description: 취소 사유
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 취소 처리된 탁송
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/logs:
+    get:
+      summary: 탁송 이력 조회
+      description: 특정 탁송의 상태 변경 이력을 조회합니다.
+      tags:
+        - deliveries
+        - logs
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      responses:
+        '200':
+          description: 탁송 이력 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryLogResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 탁송 이력 추가
+      description: 특정 탁송에 이력을 추가합니다.
+      tags:
+        - deliveries
+        - logs
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryLogCreate'
+      responses:
+        '201':
+          description: 생성된 탁송 이력
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryLogResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deliveries/{delivery_id}/routes:
+    get:
+      summary: 탁송 경로 조회
+      description: 특정 탁송의 경로 포인트 목록을 조회합니다.
+      tags:
+        - deliveries
+        - routes
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      responses:
+        '200':
+          description: 경로 포인트 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoutePointResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 탁송 경로 추가
+      description: 특정 탁송에 경로 포인트를 추가합니다.
+      tags:
+        - deliveries
+        - routes
+      parameters:
+        - $ref: '#/components/parameters/DeliveryID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutePointCreate'
+      responses:
+        '201':
+          description: 생성된 경로 포인트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePointResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /drivers/schedules:
+    get:
+      summary: 기사 일정 목록 조회
+      description: 기사 일정 목록을 조회합니다.
+      tags:
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/DriverID'
+        - name: date
+          in: query
+          description: 조회할 날짜 (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: is_available
+          in: query
+          description: 가용 상태 필터
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Skip'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 기사 일정 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DriverScheduleResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: 기사 일정 생성
+      description: 새로운 기사 일정을 생성합니다.
+      tags:
+        - drivers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverScheduleCreate'
+      responses:
+        '201':
+          description: 생성된 기사 일정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverScheduleResponse'
+        '400':
+          description: 잘못된 요청 (기사 ID 등 필수 필드 누락)
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /drivers/schedules/{schedule_id}:
+    get:
+      summary: 기사 일정 조회
+      description: ID로 특정 기사 일정을 조회합니다.
+      tags:
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/ScheduleID'
+      responses:
+        '200':
+          description: 기사 일정 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverScheduleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      summary: 기사 일정 수정
+      description: 특정 기사 일정의 정보를 수정합니다.
+      tags:
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/ScheduleID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverScheduleUpdate'
+      responses:
+        '200':
+          description: 수정된 기사 일정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverScheduleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: 기사 일정 삭제
+      description: 특정 기사 일정을 삭제합니다.
+      tags:
+        - drivers
+      parameters:
+        - $ref: '#/components/parameters/ScheduleID'
+      responses:
+        '200':
+          description: 삭제된 기사 일정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverScheduleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    DeliveryID:
+      name: delivery_id
+      in: path
+      description: 탁송 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DriverID:
+      name: driver_id
+      in: query
+      description: 기사 ID
+      schema:
+        type: string
+        format: uuid
+    DriverIDPathParam:
+      name: driver_id
+      in: path
+      description: 기사 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VehicleID:
+      name: vehicle_id
+      in: query
+      description: 차량 ID
+      schema:
+        type: string
+        format: uuid
+    VehicleIDPathParam:
+      name: vehicle_id
+      in: path
+      description: 차량 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScheduleID:
+      name: schedule_id
+      in: path
+      description: 기사 일정 ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Status:
+      name: status
+      in: query
+      description: 탁송 상태 필터
+      schema:
+        $ref: '#/components/schemas/DeliveryStatus'
+    Type:
+      name: delivery_type
+      in: query
+      description: 탁송 유형 필터
+      schema:
+        $ref: '#/components/schemas/DeliveryType'
+    Priority:
+      name: priority
+      in: query
+      description: 우선순위 필터
+      schema:
+        $ref: '#/components/schemas/PriorityLevel'
+    FromDate:
+      name: from_date
+      in: query
+      description: 시작 날짜 (YYYY-MM-DD)
+      schema:
+        type: string
+        format: date
+    ToDate:
+      name: to_date
+      in: query
+      description: 종료 날짜 (YYYY-MM-DD)
+      schema:
+        type: string
+        format: date
+    Skip:
+      name: skip
+      in: query
+      description: 건너뛸 항목 수
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Limit:
+      name: limit
+      in: query
+      description: 반환할 최대 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 100
+
+  responses:
+    NotFound:
+      description: 요청한 리소스를 찾을 수 없습니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    DeliveryStatus:
+      type: string
+      enum:
+        - PENDING
+        - ASSIGNED
+        - IN_TRANSIT
+        - COMPLETED
+        - FAILED
+        - CANCELLED
+      description: |
+        * `PENDING` - 대기 중
+        * `ASSIGNED` - 할당됨
+        * `IN_TRANSIT` - 이동 중
+        * `COMPLETED` - 완료됨
+        * `FAILED` - 실패
+        * `CANCELLED` - 취소됨
+
+    DeliveryType:
+      type: string
+      enum:
+        - CUSTOMER_DELIVERY
+        - WORKSHOP_TRANSFER
+        - DEALER_TRANSFER
+        - PURCHASE_PICKUP
+        - RETURN_DELIVERY
+      description: |
+        * `CUSTOMER_DELIVERY` - 고객 인도
+        * `WORKSHOP_TRANSFER` - 정비소 이동
+        * `DEALER_TRANSFER` - 딜러 이동
+        * `PURCHASE_PICKUP` - 구매 차량 픽업
+        * `RETURN_DELIVERY` - 반납 차량 배송
+
+    PriorityLevel:
+      type: string
+      enum:
+        - LOW
+        - NORMAL
+        - HIGH
+        - URGENT
+      description: |
+        * `LOW` - 낮음
+        * `NORMAL` - 보통
+        * `HIGH` - 높음
+        * `URGENT` - 긴급
+
+    DeliveryBase:
+      type: object
+      required:
+        - vehicle_id
+        - delivery_type
+        - origin_location
+        - destination_location
+        - scheduled_date
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
+          description: 차량 ID
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        delivery_type:
+          $ref: '#/components/schemas/DeliveryType'
+        origin_location:
+          type: string
+          description: 출발 위치
+          example: "서울시 강남구 테헤란로 123"
+        destination_location:
+          type: string
+          description: 도착 위치
+          example: "서울시 서초구 강남대로 456"
+        scheduled_date:
+          type: string
+          format: date
+          description: 예정 날짜
+          example: "2023-05-25"
+
+    DeliveryCreate:
+      allOf:
+        - $ref: '#/components/schemas/DeliveryBase'
+        - type: object
+          properties:
+            scheduled_time:
+              type: string
+              format: time
+              description: 예정 시간
+              example: "14:00:00"
+            driver_id:
+              type: string
+              format: uuid
+              description: 기사 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            contact_person:
+              type: string
+              description: 연락 담당자
+              example: "홍길동"
+            contact_phone:
+              type: string
+              description: 연락처
+              example: "010-1234-5678"
+            priority:
+              $ref: '#/components/schemas/PriorityLevel'
+            notes:
+              type: string
+              description: 메모
+              example: "주차장 이용 가능"
+            estimated_distance:
+              type: number
+              format: float
+              description: 예상 거리 (km)
+              example: 15.5
+            estimated_duration:
+              type: integer
+              description: 예상 소요 시간 (분)
+
+    DeliveryUpdate:
+      type: object
+      properties:
+        delivery_type:
+          $ref: '#/components/schemas/DeliveryType'
+        origin_location:
+          type: string
+          description: 출발 위치
+        destination_location:
+          type: string
+          description: 도착 위치
+        scheduled_date:
+          type: string
+          format: date
+          description: 예정 날짜
+        scheduled_time:
+          type: string
+          format: time
+          description: 예정 시간
+        contact_person:
+          type: string
+          description: 연락 담당자
+        contact_phone:
+          type: string
+          description: 연락처
+        priority:
+          $ref: '#/components/schemas/PriorityLevel'
+        notes:
+          type: string
+          description: 메모
+        estimated_distance:
+          type: number
+          format: float
+          description: 예상 거리 (km)
+        estimated_duration:
+          type: integer
+          description: 예상 소요 시간 (분)
+
+    DeliveryResponse:
+      allOf:
+        - $ref: '#/components/schemas/DeliveryBase'
+        - type: object
+          required:
+            - id
+            - status
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 탁송 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            status:
+              $ref: '#/components/schemas/DeliveryStatus'
+            scheduled_time:
+              type: string
+              format: time
+              description: 예정 시간
+              example: "14:00:00"
+            driver_id:
+              type: string
+              format: uuid
+              description: 기사 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            actual_pickup_time:
+              type: string
+              format: date-time
+              description: 실제 픽업 시간
+              example: "2023-05-25T14:15:00Z"
+            actual_delivery_time:
+              type: string
+              format: date-time
+              description: 실제 배송 완료 시간
+              example: "2023-05-25T15:00:00Z"
+            contact_person:
+              type: string
+              description: 연락 담당자
+              example: "홍길동"
+            contact_phone:
+              type: string
+              description: 연락처
+              example: "010-1234-5678"
+            priority:
+              $ref: '#/components/schemas/PriorityLevel'
+            notes:
+              type: string
+              description: 메모
+              example: "주차장 이용 가능"
+            issues:
+              type: array
+              description: 발생한 문제 목록
+              items:
+                type: string
+              example: ["고객 부재로 인한 대기"]
+            estimated_distance:
+              type: number
+              format: float
+              description: 예상 거리 (km)
+              example: 15.5
+            estimated_duration:
+              type: integer
+              description: 예상 소요 시간 (분)
+              example: 45
+            completed_by:
+              type: string
+              description: 완료 처리자
+              example: "김완료"
+            customer_signature:
+              type: string
+              description: 고객 서명 이미지 URL
+              example: "https://example.com/signatures/sign123.png"
+            created_at:
+              type: string
+              format: date-time
+              description: 생성 일시
+              example: "2023-05-20T12:34:56Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: 수정 일시
+              example: "2023-05-20T12:34:56Z"
+
+    DeliveryLogCreate:
+      type: object
+      required:
+        - status
+        - logged_by
+      properties:
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        logged_by:
+          type: string
+          description: 로그 기록자
+          example: "system"
+        details:
+          type: string
+          description: 세부 내용
+          example: "기사가 출발지에 도착했습니다."
+        location:
+          type: string
+          description: 위치 정보
+          example: "서울시 강남구 테헤란로 근처"
+        gps_coordinates:
+          type: object
+          properties:
+            latitude:
+              type: number
+              format: float
+              description: 위도
+              example: 37.5665
+            longitude:
+              type: number
+              format: float
+              description: 경도
+              example: 126.9780
+
+    DeliveryLogResponse:
+      allOf:
+        - $ref: '#/components/schemas/DeliveryLogCreate'
+        - type: object
+          required:
+            - id
+            - delivery_id
+            - timestamp
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 로그 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            delivery_id:
+              type: string
+              format: uuid
+              description: 탁송 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            timestamp:
+              type: string
+              format: date-time
+              description: 타임스탬프
+              example: "2023-05-25T14:15:00Z"
+
+    RoutePointCreate:
+      type: object
+      required:
+        - sequence
+        - location
+      properties:
+        sequence:
+          type: integer
+          description: 순서
+          example: 1
+        location:
+          type: string
+          description: 위치
+          example: "서울시 강남구 테헤란로 311"
+        description:
+          type: string
+          description: 설명
+          example: "픽업 지점"
+        estimated_arrival_time:
+          type: string
+          format: date-time
+          description: 예상 도착 시간
+          example: "2023-05-25T14:00:00Z"
+        notes:
+          type: string
+          description: 메모
+          example: "주차 공간 확인 필요"
+
+    RoutePointResponse:
+      allOf:
+        - $ref: '#/components/schemas/RoutePointCreate'
+        - type: object
+          required:
+            - id
+            - delivery_id
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 경로 포인트 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            delivery_id:
+              type: string
+              format: uuid
+              description: 탁송 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+            actual_arrival_time:
+              type: string
+              format: date-time
+              description: 실제 도착 시간
+              example: "2023-05-25T14:05:00Z"
+            created_at:
+              type: string
+              format: date-time
+              description: 생성 일시
+              example: "2023-05-20T12:34:56Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: 수정 일시
+              example: "2023-05-20T12:34:56Z"
+
+    DriverScheduleCreate:
+      type: object
+      required:
+        - driver_id
+        - date
+        - start_time
+        - end_time
+      properties:
+        driver_id:
+          type: string
+          format: uuid
+          description: 기사 ID
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        date:
+          type: string
+          format: date
+          description: 날짜
+          example: "2023-05-25"
+        start_time:
+          type: string
+          format: time
+          description: 시작 시간
+          example: "09:00:00"
+        end_time:
+          type: string
+          format: time
+          description: 종료 시간
+          example: "18:00:00"
+        is_available:
+          type: boolean
+          description: 가용 여부
+          example: true
+        reason:
+          type: string
+          description: 사유 (비가용 시)
+          example: "휴가"
+        notes:
+          type: string
+          description: 메모
+          example: "오전만 가능"
+
+    DriverScheduleUpdate:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: 날짜
+        start_time:
+          type: string
+          format: time
+          description: 시작 시간
+        end_time:
+          type: string
+          format: time
+          description: 종료 시간
+        is_available:
+          type: boolean
+          description: 가용 여부
+        reason:
+          type: string
+          description: 사유 (비가용 시)
+        notes:
+          type: string
+          description: 메모
+
+    DriverScheduleResponse:
+      allOf:
+        - $ref: '#/components/schemas/DriverScheduleCreate'
+        - type: object
+          required:
+            - id
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: 일정 ID
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            created_at:
+              type: string
+              format: date-time
+              description: 생성 일시
+              example: "2023-05-20T12:34:56Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: 수정 일시
+              example: "2023-05-20T12:34:56Z"
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: HTTP 상태 코드
+          example: 404
+        message:
+          type: string
+          description: 오류 메시지
+          example: "ID 'f47ac10b-58cc-4372-a567-0e02b2c3d479'인 탁송을 찾을 수 없습니다."
+        details:
+          type: string
+          description: 추가 오류 상세 정보
+          example: "데이터베이스에서 해당 ID에 해당하는 레코드가 없습니다." 

@@ -1,0 +1,66 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # 매주 일요일 00:00 UTC에 실행
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript', 'typescript', 'python']
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-and-quality
+
+    - name: Setup Node.js
+      if: matrix.language == 'javascript' || matrix.language == 'typescript'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Setup pnpm
+      if: matrix.language == 'javascript' || matrix.language == 'typescript'
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.0
+
+    - name: Install Dependencies
+      if: matrix.language == 'javascript' || matrix.language == 'typescript'
+      run: pnpm install
+
+    - name: Setup Python
+      if: matrix.language == 'python'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python Dependencies
+      if: matrix.language == 'python'
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"

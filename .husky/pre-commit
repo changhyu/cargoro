@@ -1,0 +1,35 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 스테이징된 파일 검사
+echo "🔍 Pre-commit 검사 시작..."
+
+# 1. Prettier 포맷 검사
+echo "📝 코드 포맷 검사 중..."
+pnpm format:check || {
+    echo "❌ 코드 포맷이 올바르지 않습니다. 'pnpm format'을 실행하세요."
+    exit 1
+}
+
+# 2. ESLint 검사
+echo "🔎 린트 검사 중..."
+pnpm lint || {
+    echo "❌ 린트 오류가 발견되었습니다."
+    exit 1
+}
+
+# 3. TypeScript 타입 검사
+echo "📘 타입 검사 중..."
+pnpm typecheck || {
+    echo "❌ 타입 오류가 발견되었습니다."
+    exit 1
+}
+
+# 4. 관련 테스트만 실행 (변경된 파일)
+echo "🧪 테스트 실행 중..."
+pnpm test:changed || {
+    echo "❌ 테스트가 실패했습니다."
+    exit 1
+}
+
+echo "✅ Pre-commit 검사 완료!"

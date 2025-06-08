@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2022"],
+    "jsx": "react-native",
+    "types": ["react-native"]
+  },
+  "include": ["mobile.tsx", "utils/mobile-auth-utils.ts", "lib/clerk.ts", "types.ts"],
+  "exclude": [
+    "web.ts",
+    "server.ts",
+    "server-actions.ts",
+    "middleware.ts",
+    "middleware.test.ts",
+    "components/clerk-web-provider.tsx",
+    "components/ClerkProvider.tsx",
+    "utils/web-auth-utils.ts"
+  ]
+}

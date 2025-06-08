@@ -1,0 +1,95 @@
+# Canary Deployment Values
+# This file is used in conjunction with environment-specific values
+
+canary:
+  enabled: true
+  weight: 10 # Start with 10% traffic to canary
+
+  # Canary-specific settings
+  replicaCount: 1 # Single replica for initial canary
+
+  # Analysis and metrics
+  analysis:
+    enabled: true
+    # Prometheus queries for success rate
+    successRate:
+      query: "sum(rate(http_requests_total{job='cargoro-canary',code!~'5..'}[5m])) / sum(rate(http_requests_total{job='cargoro-canary'}[5m]))"
+      threshold: 0.95 # 95% success rate required
+
+    # Response time analysis
+    responseTime:
+      query: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job='cargoro-canary'}[5m])) by (le))"
+      threshold: 0.5 # 500ms 95th percentile
+
+    # Error rate analysis
+    errorRate:
+      query: "sum(rate(http_requests_total{job='cargoro-canary',code=~'5..'}[5m])) / sum(rate(http_requests_total{job='cargoro-canary'}[5m]))"
+      threshold: 0.01 # Max 1% error rate
+
+  # Progressive traffic shifting
+  stages:
+    - weight: 10
+      duration: 5m
+    - weight: 25
+      duration: 10m
+    - weight: 50
+      duration: 15m
+    - weight: 100
+      duration: 0m # Full promotion
+
+# Service mesh configuration (if using Istio)
+istio:
+  enabled: true
+  virtualService:
+    canary:
+      match:
+        - headers:
+            canary:
+              exact: 'true'
+      route:
+        - destination:
+            host: cargoro-canary
+            subset: canary
+          weight: 100
+    production:
+      route:
+        - destination:
+            host: cargoro
+            subset: stable
+          weight: 90
+        - destination:
+            host: cargoro-canary
+            subset: canary
+          weight: 10
+
+# Monitoring specifically for canary
+monitoring:
+  canary:
+    enabled: true
+    alerts:
+      - name: CanaryHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="cargoro-canary",code=~"5.."}[5m])) /
+            sum(rate(http_requests_total{job="cargoro-canary"}[5m]))
+          ) > 0.01
+        duration: 2m
+        severity: critical
+
+      - name: CanaryHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="cargoro-canary"}[5m])) by (le)
+          ) > 0.5
+        duration: 5m
+        severity: warning
+
+# Rollback configuration
+rollback:
+  enabled: true
+  automatic: true
+  triggers:
+    - metric: error_rate
+      threshold: 0.05 # 5% error rate triggers rollback
+    - metric: response_time_p95
+      threshold: 1.0 # 1 second 95th percentile triggers rollback

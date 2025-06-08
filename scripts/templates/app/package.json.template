@@ -1,0 +1,46 @@
+{
+  "name": "{{APP_NAME}}",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rm -rf .next .turbo node_modules coverage"
+  },
+  "dependencies": {
+    "@cargoro/ui": "workspace:*",
+    "@cargoro/utils": "workspace:*",
+    "@cargoro/types": "workspace:*",
+    "@cargoro/api-client": "workspace:*", 
+    "@cargoro/auth": "workspace:*",
+    "@cargoro/analytics": "workspace:*",
+    "@cargoro/i18n": "workspace:*",
+    "i18next": "^23.0.0",
+    "i18next-browser-languagedetector": "^8.1.0", 
+    "next": "14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-i18next": "^13.0.0",
+    "zustand": "4.4.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.1.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "typescript": "5.4.5",
+    "vitest": "^3.1.0"
+  }
+}

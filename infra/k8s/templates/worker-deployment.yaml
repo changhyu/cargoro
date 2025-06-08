@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.worker.name }}
+  labels:
+    app: {{ .Values.worker.name }}
+    environment: {{ .Values.global.environment }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.worker.name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.worker.name }}
+        environment: {{ .Values.global.environment }}
+    spec:
+      containers:
+        - name: {{ .Values.worker.name }}
+          image: {{ .Values.worker.image }}
+          imagePullPolicy: IfNotPresent
+          # 환경 변수 설정
+          env:
+            {{- range $key, $value := .Values.worker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          # 리소스 제한 설정
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          # 상태 확인 설정
+          livenessProbe:
+            {{- toYaml .Values.worker.livenessProbe | nindent 12 }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ .Values.worker.name }}-config
+        - name: tmp-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.worker.name }}-config
+  labels:
+    app: {{ .Values.worker.name }}
+    environment: {{ .Values.global.environment }}
+data:
+  config.json: |
+    {
+      "env": "{{ .Values.global.environment }}",
+      "logLevel": "info",
+      "concurrency": 5
+    }
+---
+{{- if .Values.networkPolicies.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.worker.name }}-network-policy
+  labels:
+    app: {{ .Values.worker.name }}
+    environment: {{ .Values.global.environment }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.worker.name }}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: {{ .Values.postgres.name }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.postgres.service.port }}
+  - to:
+    - podSelector:
+        matchLabels:
+          app: {{ .Values.redis.name }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.redis.service.port }}
+  - to:
+    - podSelector:
+        matchLabels:
+          app: {{ .Values.rabbitmq.name }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.rabbitmq.service.amqpPort }}
+  - to:
+    - namespaceSelector: {}
+      podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+{{- end }}

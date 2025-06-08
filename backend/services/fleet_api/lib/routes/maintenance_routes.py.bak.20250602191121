@@ -1,0 +1,687 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+from typing import List, Optional
+from datetime import datetime
+import math
+import logging
+from prisma.errors import PrismaError
+
+from ..models.maintenance_new import (
+    MaintenanceCreate,
+    MaintenanceUpdate,
+    MaintenanceResponse,
+    MaintenanceFilters,
+    MaintenanceListResponse,
+    MaintenancePartCreate,
+    MaintenancePartUpdate,
+    MaintenancePartResponse,
+    MaintenanceStatus,
+    MaintenanceType,
+)
+from ..utils.auth import get_current_user
+
+# Prisma 클라이언트 초기화
+from prisma import Prisma
+
+db = Prisma()
+
+router = APIRouter(tags=["maintenance"])
+logger = logging.getLogger(__name__)
+
+
+@router.post(
+    "/maintenance",
+    response_model=MaintenanceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_maintenance(
+    maintenance_data: MaintenanceCreate, current_user: dict = Depends(get_current_user)
+):
+    """
+    새로운 유지보수 기록을 생성합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 생성 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 조직 존재 여부 확인
+        organization = await db.organization.find_unique(
+            where={"id": maintenance_data.organizationId}
+        )
+
+        if not organization:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_data.organizationId}'인 조직을 찾을 수 없습니다.",
+            )
+
+        # 차량 존재 여부 확인
+        vehicle = await db.vehicle.find_unique(where={"id": maintenance_data.vehicleId})
+
+        if not vehicle:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_data.vehicleId}'인 차량을 찾을 수 없습니다.",
+            )
+
+        # 조직과 차량이 일치하는지 확인
+        if vehicle.organizationId != maintenance_data.organizationId:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="차량이 지정된 조직에 속하지 않습니다.",
+            )
+
+        # Maintenance 모델 변환 및 생성
+        maintenance_data_dict = maintenance_data.model_dump(exclude={"parts"})
+
+        # 유지보수 데이터 생성
+        new_maintenance = await db.maintenance.create(data=maintenance_data_dict)
+
+        # 부품 데이터 추가
+        if maintenance_data.parts:
+            for part in maintenance_data.parts:
+                part_dict = part.model_dump()
+                part_dict["maintenanceId"] = new_maintenance.id
+                await db.maintenancepart.create(data=part_dict)
+
+        # 생성된 유지보수 기록 조회 (부품 포함)
+        created_maintenance = await db.maintenance.find_unique(
+            where={"id": new_maintenance.id}, include={"parts": True}
+        )
+
+        return created_maintenance
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 생성 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/maintenance", response_model=MaintenanceListResponse)
+async def get_maintenances(
+    vehicle_id: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    maintenance_type: Optional[MaintenanceType] = None,
+    status: Optional[MaintenanceStatus] = None,
+    start_date_from: Optional[datetime] = None,
+    start_date_to: Optional[datetime] = None,
+    title: Optional[str] = None,
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    필터링 옵션을 사용하여 유지보수 기록 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 목록 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {}
+
+        if vehicle_id:
+            where_conditions["vehicleId"] = vehicle_id
+
+        if organization_id:
+            where_conditions["organizationId"] = organization_id
+
+        if maintenance_type:
+            where_conditions["maintenanceType"] = maintenance_type
+
+        if status:
+            where_conditions["status"] = status
+
+        if title:
+            where_conditions["title"] = {"contains": title}
+
+        # 날짜 범위 필터
+        if start_date_from or start_date_to:
+            where_conditions["startDate"] = {}
+
+            if start_date_from:
+                where_conditions["startDate"]["gte"] = start_date_from
+
+            if start_date_to:
+                where_conditions["startDate"]["lte"] = start_date_to
+
+        # 전체 레코드 수 조회
+        total_records = await db.maintenance.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 유지보수 기록 목록 조회
+        maintenances = await db.maintenance.find_many(
+            where=where_conditions,
+            skip=skip,
+            take=page_size,
+            order={"startDate": "desc"},
+            include={"parts": True},
+        )
+
+        # 응답 구성
+        return {
+            "items": maintenances,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 목록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/maintenance/{maintenance_id}", response_model=MaintenanceResponse)
+async def get_maintenance_by_id(
+    maintenance_id: str = Path(..., description="조회할 유지보수 기록 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ID로 특정 유지보수 기록의 상세 정보를 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 정보 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 유지보수 기록 조회
+        maintenance = await db.maintenance.find_unique(
+            where={"id": maintenance_id}, include={"parts": True}
+        )
+
+        if not maintenance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_id}'인 유지보수 기록을 찾을 수 없습니다.",
+            )
+
+        return maintenance
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.put("/maintenance/{maintenance_id}", response_model=MaintenanceResponse)
+async def update_maintenance(
+    maintenance_id: str = Path(..., description="수정할 유지보수 기록 ID"),
+    maintenance_data: MaintenanceUpdate = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 유지보수 기록의 정보를 업데이트합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 정보 수정 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 유지보수 기록 존재 여부 확인
+        existing_maintenance = await db.maintenance.find_unique(
+            where={"id": maintenance_id}, include={"vehicle": True}
+        )
+
+        if not existing_maintenance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_id}'인 유지보수 기록을 찾을 수 없습니다.",
+            )
+
+        # 업데이트할 데이터 준비
+        update_data = maintenance_data.model_dump(exclude_unset=True)
+
+        # 차량 변경 시 차량 존재 여부 확인
+        if "vehicleId" in update_data:
+            vehicle = await db.vehicle.find_unique(
+                where={"id": update_data["vehicleId"]}
+            )
+
+            if not vehicle:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"ID가 '{update_data['vehicleId']}'인 차량을 찾을 수 없습니다.",
+                )
+
+            # 조직 일관성 확인
+            if "organizationId" in update_data:
+                if vehicle.organizationId != update_data["organizationId"]:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="차량이 지정된 조직에 속하지 않습니다.",
+                    )
+            elif vehicle.organizationId != existing_maintenance.vehicle.organizationId:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="차량이 현재 유지보수 기록의 조직에 속하지 않습니다.",
+                )
+
+        # 조직 변경 시 차량과의 일관성 확인
+        elif "organizationId" in update_data:
+            if (
+                existing_maintenance.vehicle.organizationId
+                != update_data["organizationId"]
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="현재 차량이 지정된 조직에 속하지 않습니다.",
+                )
+
+        # 데이터 업데이트
+        updated_maintenance = await db.maintenance.update(
+            where={"id": maintenance_id}, data=update_data, include={"parts": True}
+        )
+
+        return updated_maintenance
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 정보 업데이트 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 정보 업데이트 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.delete("/maintenance/{maintenance_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_maintenance(
+    maintenance_id: str = Path(..., description="삭제할 유지보수 기록 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 유지보수 기록을 삭제합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 삭제 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 유지보수 기록 존재 여부 확인
+        existing_maintenance = await db.maintenance.find_unique(
+            where={"id": maintenance_id}
+        )
+
+        if not existing_maintenance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_id}'인 유지보수 기록을 찾을 수 없습니다.",
+            )
+
+        # 관련 부품 데이터 삭제
+        await db.maintenancepart.delete_many(where={"maintenanceId": maintenance_id})
+
+        # 유지보수 기록 삭제
+        await db.maintenance.delete(where={"id": maintenance_id})
+
+        return None
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 삭제 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 삭제 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.patch(
+    "/maintenance/{maintenance_id}/status", response_model=MaintenanceResponse
+)
+async def update_maintenance_status(
+    maintenance_id: str = Path(..., description="상태를 변경할 유지보수 기록 ID"),
+    status: MaintenanceStatus = Query(..., description="변경할 상태"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    유지보수 기록의 상태를 업데이트합니다.
+    """
+    try:
+        # 인증된 사용자만 유지보수 기록 상태 변경 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 유지보수 기록 존재 여부 확인
+        existing_maintenance = await db.maintenance.find_unique(
+            where={"id": maintenance_id}
+        )
+
+        if not existing_maintenance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_id}'인 유지보수 기록을 찾을 수 없습니다.",
+            )
+
+        # 완료 상태로 변경 시 종료일 자동 설정
+        update_data = {"status": status}
+        if status == MaintenanceStatus.COMPLETED and not existing_maintenance.endDate:
+            update_data["endDate"] = datetime.now()
+
+        # 상태 업데이트
+        updated_maintenance = await db.maintenance.update(
+            where={"id": maintenance_id}, data=update_data, include={"parts": True}
+        )
+
+        # 차량 상태 업데이트
+        # 유지보수 중 -> available로 변경
+        if status in [MaintenanceStatus.COMPLETED, MaintenanceStatus.CANCELLED]:
+            if existing_maintenance.status == MaintenanceStatus.IN_PROGRESS:
+                await db.vehicle.update(
+                    where={"id": existing_maintenance.vehicleId},
+                    data={"status": "available"},
+                )
+        # 예정됨 -> 유지보수 중으로 변경
+        elif status == MaintenanceStatus.IN_PROGRESS:
+            await db.vehicle.update(
+                where={"id": existing_maintenance.vehicleId},
+                data={"status": "maintenance"},
+            )
+
+        return updated_maintenance
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유지보수 기록 상태 변경 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"유지보수 기록 상태 변경 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+# 부품 관련 API
+
+
+@router.post(
+    "/maintenance/{maintenance_id}/parts",
+    response_model=MaintenancePartResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_maintenance_part(
+    maintenance_id: str = Path(..., description="유지보수 기록 ID"),
+    part_data: MaintenancePartCreate = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    유지보수 기록에 부품을 추가합니다.
+    """
+    try:
+        # 인증된 사용자만 부품 추가 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 유지보수 기록 존재 여부 확인
+        existing_maintenance = await db.maintenance.find_unique(
+            where={"id": maintenance_id}
+        )
+
+        if not existing_maintenance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{maintenance_id}'인 유지보수 기록을 찾을 수 없습니다.",
+            )
+
+        # 부품 데이터 준비
+        part_dict = part_data.model_dump()
+        part_dict["maintenanceId"] = maintenance_id
+
+        # 부품 생성
+        new_part = await db.maintenancepart.create(data=part_dict)
+
+        return new_part
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="부품 추가 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"부품 추가 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.put("/maintenance/parts/{part_id}", response_model=MaintenancePartResponse)
+async def update_maintenance_part(
+    part_id: str = Path(..., description="수정할 부품 ID"),
+    part_data: MaintenancePartUpdate = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    유지보수 기록의 부품 정보를 업데이트합니다.
+    """
+    try:
+        # 인증된 사용자만 부품 정보 수정 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 부품 존재 여부 확인
+        existing_part = await db.maintenancepart.find_unique(where={"id": part_id})
+
+        if not existing_part:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{part_id}'인 부품을 찾을 수 없습니다.",
+            )
+
+        # 업데이트할 데이터 준비
+        update_data = part_data.model_dump(exclude_unset=True)
+
+        # 단가와 수량이 변경된 경우 총 금액 자동 계산
+        if (
+            "unitPrice" in update_data or "quantity" in update_data
+        ) and "totalPrice" not in update_data:
+            unit_price = update_data.get("unitPrice", existing_part.unitPrice)
+            quantity = update_data.get("quantity", existing_part.quantity)
+
+            if unit_price is not None and quantity is not None:
+                update_data["totalPrice"] = unit_price * quantity
+
+        # 부품 정보 업데이트
+        updated_part = await db.maintenancepart.update(
+            where={"id": part_id}, data=update_data
+        )
+
+        return updated_part
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="부품 정보 업데이트 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"부품 정보 업데이트 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.delete("/maintenance/parts/{part_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_maintenance_part(
+    part_id: str = Path(..., description="삭제할 부품 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    유지보수 기록에서 부품을 삭제합니다.
+    """
+    try:
+        # 인증된 사용자만 부품 삭제 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 부품 존재 여부 확인
+        existing_part = await db.maintenancepart.find_unique(where={"id": part_id})
+
+        if not existing_part:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{part_id}'인 부품을 찾을 수 없습니다.",
+            )
+
+        # 부품 삭제
+        await db.maintenancepart.delete(where={"id": part_id})
+
+        return None
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="부품 삭제 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"부품 삭제 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/maintenance-history", response_model=MaintenanceListResponse
+)
+async def get_vehicle_maintenance_history(
+    vehicle_id: str = Path(..., description="차량 ID"),
+    status: Optional[MaintenanceStatus] = None,
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 차량의 유지보수 기록 내역을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 차량 유지보수 기록 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 차량 존재 여부 확인
+        vehicle = await db.vehicle.find_unique(where={"id": vehicle_id})
+
+        if not vehicle:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{vehicle_id}'인 차량을 찾을 수 없습니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {"vehicleId": vehicle_id}
+
+        if status:
+            where_conditions["status"] = status
+
+        # 전체 레코드 수 조회
+        total_records = await db.maintenance.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 유지보수 기록 조회
+        maintenances = await db.maintenance.find_many(
+            where=where_conditions,
+            skip=skip,
+            take=page_size,
+            order={"startDate": "desc"},
+            include={"parts": True},
+        )
+
+        # 응답 구성
+        return {
+            "items": maintenances,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="차량 유지보수 기록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"차량 유지보수 기록 조회 중 오류가 발생했습니다: {str(e)}",
+        )

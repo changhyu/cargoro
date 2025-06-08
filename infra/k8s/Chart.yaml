@@ -1,0 +1,16 @@
+apiVersion: v2
+name: cargoro-platform
+description: A Helm chart for Cargoro Monorepo Platform
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - cargoro
+  - platform
+  - api-gateway
+  - worker
+  - postgres
+  - redis
+  - rabbitmq
+maintainers:
+  - name: cargoro-dev
+    email: dev@cargoro.com 

@@ -1,0 +1,66 @@
+{
+  "name": "@cargoro/reporting",
+  "version": "1.0.0",
+  "description": "CarGoro 고급 보고서 시스템",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./server": {
+      "import": "./server/index.js",
+      "require": "./server/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc --build",
+    "build:server": "tsc --project tsconfig.server.json",
+    "dev": "tsc --build --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"**/*.{ts,tsx}\"",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@cargoro/ui": "workspace:*",
+    "@react-pdf/renderer": "^3.4.4",
+    "@tanstack/react-query": "^5.75.8",
+    "chart.js": "^4.4.2",
+    "chartjs-node-canvas": "^4.1.6",
+    "date-fns": "^2.30.0",
+    "docx": "^8.5.0",
+    "exceljs": "^4.4.0",
+    "handlebars": "^4.7.8",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.263.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.13",
+    "pdfkit": "^0.15.0",
+    "puppeteer": "^22.6.5",
+    "uuid": "^9.0.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.6",
+    "@types/node": "^20.14.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.15",
+    "@types/pdfkit": "^0.13.4",
+    "@types/react": "^19.1.6",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.5.2",
+    "vitest": "^1.6.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

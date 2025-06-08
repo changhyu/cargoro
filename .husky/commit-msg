@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 커밋 메시지 검사
+echo "📋 커밋 메시지 검사 중..."
+
+# commitlint 실행
+npx --no -- commitlint --edit ${1} || {
+    echo "❌ 커밋 메시지가 규칙을 따르지 않습니다."
+    echo ""
+    echo "올바른 형식:"
+    echo "  <type>(<scope>): <subject>"
+    echo ""
+    echo "예시:"
+    echo "  feat(auth): 로그인 기능 추가"
+    echo "  fix(api): 사용자 조회 버그 수정"
+    echo "  docs(readme): 설치 가이드 업데이트"
+    echo ""
+    echo "타입:"
+    echo "  feat     : 새로운 기능"
+    echo "  fix      : 버그 수정"
+    echo "  docs     : 문서 수정"
+    echo "  style    : 코드 스타일 변경 (포맷팅 등)"
+    echo "  refactor : 코드 리팩토링"
+    echo "  test     : 테스트 추가/수정"
+    echo "  chore    : 빌드 설정, 패키지 업데이트 등"
+    echo "  perf     : 성능 개선"
+    echo "  ci       : CI/CD 설정 변경"
+    exit 1
+}
+
+echo "✅ 커밋 메시지 검사 완료!"

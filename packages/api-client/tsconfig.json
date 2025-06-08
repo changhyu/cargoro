@@ -1,0 +1,44 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": false,
+    "target": "es2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "jsx": "preserve",
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": false,
+    "alwaysStrict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@cargoro/utils": ["../utils/src/index"],
+      "@cargoro/utils/*": ["../utils/src/*"],
+      "@cargoro/types": ["../types/index"],
+      "@cargoro/types/*": ["../types/*"]
+    },
+    "typeRoots": [
+      "../../node_modules/@types",
+      "./node_modules/@types",
+      "../../node_modules/@testing-library"
+    ],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "vitest.setup.ts", "vitest.config.ts", "types/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/tests/**",
+    "**/lib/**/__tests__/**",
+    "**/__tests__/**/*"
+  ]
+}

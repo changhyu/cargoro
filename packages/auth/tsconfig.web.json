@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["node", "@testing-library/jest-dom"]
+  },
+  "include": [
+    "index.ts",
+    "web.ts",
+    "server.ts",
+    "server-actions.ts",
+    "middleware.ts",
+    "middleware.test.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "hooks/**/*.ts",
+    "lib/**/*.ts",
+    "utils/web-auth-utils.ts",
+    "types.ts"
+  ],
+  "exclude": ["mobile.tsx", "utils/mobile-auth-utils.ts"]
+}

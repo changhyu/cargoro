@@ -1,0 +1,125 @@
+/* vehicle-map.css */
+.map-tiles {
+  z-index: 1 !important; /* 지도 타일을 앞으로 표시 */
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: #f5f5f5 !important;
+}
+
+/* 차량 상태 표시 레이어 스타일 */
+.vehicle-status-legend {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1000 !important; /* 매우 높은 z-index 값 적용 */
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.85rem;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.vehicle-status-item {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+  display: inline-block;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* 상태별 색상 */
+.status-active {
+  background-color: #10b981;
+} /* 운행 중 - 녹색 */
+.status-idle {
+  background-color: #3b82f6;
+} /* 대기 중 - 파란색 */
+.status-maintenance {
+  background-color: #f59e0b;
+} /* 정비 중 - 주황색 */
+.status-out-of-service {
+  background-color: #ef4444;
+} /* 운행 불가 - 빨간색 */
+
+/* 컨트롤 버튼 스타일 */
+.map-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000 !important;
+  display: flex;
+  gap: 8px;
+}
+
+.map-control-button {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.map-control-button:hover {
+  background-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Mapbox 오류 무시 */
+.mapboxgl-missing-css,
+.mapbox-missing-css,
+.mapboxgl-ctrl {
+  display: none !important;
+}
+
+/* 마커 스타일 */
+.leaflet-marker-icon {
+  border: none !important;
+  background-color: transparent !important;
+}
+
+/* 팝업 스타일 */
+.leaflet-popup-content {
+  margin: 10px;
+  min-width: 150px;
+}
+
+.leaflet-popup-content strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #3b82f6;
+}
+
+/* 리플렛 컨트롤에 z-index 적용 */
+.leaflet-control-container .leaflet-top,
+.leaflet-control-container .leaflet-bottom {
+  z-index: 999 !important;
+}
+
+.leaflet-control-container .leaflet-control {
+  z-index: 999 !important;
+}

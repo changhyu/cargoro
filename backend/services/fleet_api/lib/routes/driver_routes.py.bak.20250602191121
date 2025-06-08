@@ -1,0 +1,500 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+from typing import List, Optional
+from datetime import datetime, timedelta
+import math
+import logging
+from prisma.errors import PrismaError
+
+from ..models.driver_new import (
+    DriverCreate,
+    DriverUpdate,
+    DriverResponse,
+    DriverFilters,
+    DriverListResponse,
+)
+from ..models.assignment import VehicleAssignmentCreate, VehicleAssignmentResponse
+from ..models.driver_performance_new import DrivingRecordResponse
+from ..utils.auth import get_current_user
+
+# Prisma 클라이언트 초기화
+from prisma import Prisma
+
+db = Prisma()
+
+router = APIRouter(tags=["drivers"])
+logger = logging.getLogger(__name__)
+
+
+@router.post(
+    "/drivers", response_model=DriverResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_driver(
+    driver_data: DriverCreate, current_user: dict = Depends(get_current_user)
+):
+    """
+    새로운 운전자를 생성합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 생성 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 조직 존재 여부 확인
+        organization = await db.organization.find_unique(
+            where={"id": driver_data.organizationId}
+        )
+
+        if not organization:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{driver_data.organizationId}'인 조직을 찾을 수 없습니다.",
+            )
+
+        # 이메일 중복 확인
+        existing_driver = await db.driver.find_unique(
+            where={"email": driver_data.email}
+        )
+
+        if existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"이메일 '{driver_data.email}'은 이미 사용 중입니다.",
+            )
+
+        # 면허번호 중복 확인
+        existing_license = await db.driver.find_unique(
+            where={"licenseNumber": driver_data.licenseNumber}
+        )
+
+        if existing_license:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"면허번호 '{driver_data.licenseNumber}'는 이미 등록되어 있습니다.",
+            )
+
+        # Driver 모델 변환 및 생성
+        driver_data_dict = driver_data.model_dump()
+
+        # emergencyContact JSON으로 변환
+        if driver_data.emergencyContact:
+            driver_data_dict["emergencyContact"] = (
+                driver_data.emergencyContact.model_dump()
+            )
+
+        # assignedVehicles 초기화
+        driver_data_dict["assignedVehicles"] = []
+
+        # 데이터베이스에 저장
+        new_driver = await db.driver.create(data=driver_data_dict)
+
+        return new_driver
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 생성 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/drivers", response_model=DriverListResponse)
+async def get_drivers(
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    license_number: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    organization_id: Optional[str] = None,
+    license_expiry_before: Optional[datetime] = None,
+    license_expiry_after: Optional[datetime] = None,
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지 크기"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    필터링 옵션을 사용하여 운전자 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 목록 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 필터 조건 구성
+        where_conditions = {}
+
+        if name:
+            where_conditions["name"] = {"contains": name}
+
+        if email:
+            where_conditions["email"] = {"contains": email}
+
+        if license_number:
+            where_conditions["licenseNumber"] = {"contains": license_number}
+
+        if is_active is not None:
+            where_conditions["isActive"] = is_active
+
+        if organization_id:
+            where_conditions["organizationId"] = organization_id
+
+        if license_expiry_before:
+            where_conditions["licenseExpiry"] = {
+                **where_conditions.get("licenseExpiry", {}),
+                "lt": license_expiry_before,
+            }
+
+        if license_expiry_after:
+            where_conditions["licenseExpiry"] = {
+                **where_conditions.get("licenseExpiry", {}),
+                "gt": license_expiry_after,
+            }
+
+        # 전체 레코드 수 조회
+        total_records = await db.driver.count(where=where_conditions)
+
+        # 페이지네이션 계산
+        skip = (page - 1) * page_size
+        total_pages = math.ceil(total_records / page_size)
+
+        # 운전자 목록 조회
+        drivers = await db.driver.find_many(
+            where=where_conditions, skip=skip, take=page_size, order={"name": "asc"}
+        )
+
+        # 응답 구성
+        return {
+            "items": drivers,
+            "total": total_records,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": total_pages,
+        }
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 목록 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/drivers/{driver_id}", response_model=DriverResponse)
+async def get_driver_by_id(
+    driver_id: str = Path(..., description="조회할 운전자 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    ID로 특정 운전자의 상세 정보를 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 정보 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 운전자 조회
+        driver = await db.driver.find_unique(where={"id": driver_id})
+
+        if not driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{driver_id}'인 운전자를 찾을 수 없습니다.",
+            )
+
+        return driver
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.put("/drivers/{driver_id}", response_model=DriverResponse)
+async def update_driver(
+    driver_id: str = Path(..., description="수정할 운전자 ID"),
+    driver_data: DriverUpdate = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 운전자의 정보를 업데이트합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 정보 수정 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 운전자 존재 여부 확인
+        existing_driver = await db.driver.find_unique(where={"id": driver_id})
+
+        if not existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{driver_id}'인 운전자를 찾을 수 없습니다.",
+            )
+
+        # 업데이트할 데이터 준비
+        update_data = driver_data.model_dump(exclude_unset=True)
+
+        # emergencyContact JSON으로 변환
+        if "emergencyContact" in update_data and update_data["emergencyContact"]:
+            update_data["emergencyContact"] = update_data[
+                "emergencyContact"
+            ].model_dump()
+
+        # 이메일 중복 확인
+        if "email" in update_data and update_data["email"] != existing_driver.email:
+            email_exists = await db.driver.find_unique(
+                where={"email": update_data["email"]}
+            )
+
+            if email_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"이메일 '{update_data['email']}'은 이미 사용 중입니다.",
+                )
+
+        # 면허번호 중복 확인
+        if (
+            "licenseNumber" in update_data
+            and update_data["licenseNumber"] != existing_driver.licenseNumber
+        ):
+            license_exists = await db.driver.find_unique(
+                where={"licenseNumber": update_data["licenseNumber"]}
+            )
+
+            if license_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"면허번호 '{update_data['licenseNumber']}'는 이미 등록되어 있습니다.",
+                )
+
+        # 데이터 업데이트
+        updated_driver = await db.driver.update(
+            where={"id": driver_id}, data=update_data
+        )
+
+        return updated_driver
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 정보 업데이트 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 정보 업데이트 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.delete("/drivers/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_driver(
+    driver_id: str = Path(..., description="삭제할 운전자 ID"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    특정 운전자를 삭제합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 삭제 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 운전자 존재 여부 확인
+        existing_driver = await db.driver.find_unique(where={"id": driver_id})
+
+        if not existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{driver_id}'인 운전자를 찾을 수 없습니다.",
+            )
+
+        # 운전자 삭제
+        await db.driver.delete(where={"id": driver_id})
+
+        return None
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 삭제 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 삭제 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.patch("/drivers/{driver_id}/status", response_model=DriverResponse)
+async def toggle_driver_status(
+    driver_id: str = Path(..., description="상태를 변경할 운전자 ID"),
+    is_active: bool = Query(..., description="변경할 활성 상태"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    운전자의 활성 상태를 변경합니다.
+    """
+    try:
+        # 인증된 사용자만 운전자 상태 변경 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 운전자 존재 여부 확인
+        existing_driver = await db.driver.find_unique(where={"id": driver_id})
+
+        if not existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID가 '{driver_id}'인 운전자를 찾을 수 없습니다.",
+            )
+
+        # 상태 업데이트
+        updated_driver = await db.driver.update(
+            where={"id": driver_id}, data={"isActive": is_active}
+        )
+
+        return updated_driver
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="운전자 상태 변경 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"운전자 상태 변경 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+# 운전자별 차량 배정 목록 조회
+@router.get("/drivers/{driver_id}/assignments", response_model=List[VehicleAssignmentResponse])
+async def get_assignments_by_driver(
+    driver_id: str = Path(..., description="조회할 운전자 ID"),
+    prisma: Prisma = Depends(),
+):
+    assignments = await prisma.vehicle_assignment.find_many(where={"driver_id": driver_id})
+    return [VehicleAssignmentResponse.model_validate(a) for a in assignments]
+
+
+# 차량 배정
+@router.post("/drivers/{driver_id}/assign-vehicle", response_model=VehicleAssignmentResponse, status_code=status.HTTP_201_CREATED)
+async def assign_vehicle_to_driver(
+    driver_id: str = Path(..., description="배정할 운전자 ID"),
+    assignment: VehicleAssignmentCreate,
+    prisma: Prisma = Depends(),
+):
+    data = assignment.model_dump()
+    data["driver_id"] = driver_id
+    new_assignment = await prisma.vehicle_assignment.create(data=data)
+    return VehicleAssignmentResponse.model_validate(new_assignment)
+
+
+# 차량 배정 해제
+@router.delete("/drivers/{driver_id}/assign-vehicle/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unassign_vehicle_from_driver(
+    driver_id: str = Path(..., description="운전자 ID"),
+    vehicle_id: str = Path(..., description="차량 ID"),
+    prisma: Prisma = Depends(),
+):
+    assignment = await prisma.vehicle_assignment.find_first(
+        where={"driver_id": driver_id, "vehicle_id": vehicle_id}
+    )
+    if not assignment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
+    await prisma.vehicle_assignment.delete(where={"id": assignment.id})
+    return None
+
+
+@router.get("/drivers/license-expiry/alerts", response_model=List[DriverResponse])
+async def get_license_expiry_alerts(
+    days_threshold: int = Query(30, ge=1, le=365, description="만료 임박 기준 일수"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    면허 만료가 임박한 운전자 목록을 조회합니다.
+    """
+    try:
+        # 인증된 사용자만 면허 만료 알림 조회 가능
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="인증되지 않은 사용자입니다.",
+            )
+
+        # 현재 날짜 기준으로 만료일이 threshold 일수 이내인 운전자 조회
+        expiry_threshold = datetime.now() + timedelta(days=days_threshold)
+
+        drivers = await db.driver.find_many(
+            where={"licenseExpiry": {"lte": expiry_threshold}, "isActive": True},
+            order={"licenseExpiry": "asc"},
+        )
+
+        return drivers
+
+    except PrismaError as e:
+        logger.error(f"Prisma 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="면허 만료 알림 조회 중 데이터베이스 오류가 발생했습니다.",
+        )
+    except Exception as e:
+        logger.error(f"예상치 못한 오류: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"면허 만료 알림 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+# 운전자별 운행 이력 조회
+@router.get("/drivers/{driver_id}/records", response_model=List[DrivingRecordResponse])
+async def get_records_by_driver(
+    driver_id: str = Path(..., description="조회할 운전자 ID"),
+    prisma: Prisma = Depends(),
+):
+    """특정 운전자의 운행 이력 목록 조회"""
+    records = await prisma.drivingrecord.find_many(where={"driverId": driver_id})
+    return [DrivingRecordResponse.model_validate(r) for r in records]

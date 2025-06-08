@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@cargoro/ui/components/*": ["../../packages/ui/components/*"],
+      "@cargoro/ui/utils/*": ["../../packages/ui/utils/*"],
+      "@cargoro/ui": ["../../packages/ui"]
+    }
+  }
+}

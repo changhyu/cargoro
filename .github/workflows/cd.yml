@@ -1,174 +1,481 @@
-name: 지속적 배포 (CD)
+name: CD - CarGoro Platform
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
   workflow_dispatch:
     inputs:
       environment:
-        description: '배포 환경'
+        description: 'Deployment environment'
         required: true
         default: 'staging'
         type: choice
         options:
-          - development
           - staging
           - production
+      deployment_type:
+        description: 'Deployment type'
+        required: true
+        default: 'rolling'
+        type: choice
+        options:
+          - rolling
+          - canary
+          - blue-green
 
 env:
-  REGISTRY: ghcr.io
-  REGISTRY_USERNAME: ${{ github.actor }}
-  REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-  KUBECONFIG: ${{ secrets.KUBECONFIG }}
+  NODE_VERSION: 18
+  PNPM_VERSION: 8.12.0
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/cargoro
 
 jobs:
-  build-and-push:
-    name: 이미지 빌드 및 푸시
+  determine-environment:
+    name: Determine Environment
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
-      image_tags: ${{ steps.meta.outputs.tags }}
-    strategy:
-      matrix:
-        service: [api-gateway, worker]
-        include:
-          - service: api-gateway
-            context: ./backend/gateway
-            dockerfile: ./infra/docker/api-gateway/Dockerfile
-          - service: worker
-            context: ./backend/jobs
-            dockerfile: ./infra/docker/worker/Dockerfile
-    
+      environment: ${{ steps.env.outputs.environment }}
+      deployment_type: ${{ steps.env.outputs.deployment_type }}
+      is_production: ${{ steps.env.outputs.is_production }}
     steps:
-      - name: 소스코드 체크아웃
-        uses: actions/checkout@v3
+      - name: Set environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "deployment_type=${{ inputs.deployment_type }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "deployment_type=rolling" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "deployment_type=rolling" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v2
+          if [[ "${{ steps.env.outputs.environment }}" == "production" ]]; then
+            echo "is_production=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_production=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: 레지스트리 로그인
-        uses: docker/login-action@v2
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: [determine-environment]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.REGISTRY_USERNAME }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+          fetch-depth: 0
 
-      - name: 이미지 메타데이터 준비
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pnpm manually
+        run: |
+          npm install -g pnpm@${{ env.PNPM_VERSION }}
+          pnpm --version
+
+      - name: Debug working directory
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "GitHub workspace: $GITHUB_WORKSPACE"
+          echo "Directory contents:"
+          ls -la
+          echo "Looking for pnpm-lock.yaml:"
+          find . -name "pnpm-lock.yaml" -type f 2>/dev/null || echo "No pnpm-lock.yaml found"
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: |
+          if [ -f "pnpm-lock.yaml" ]; then
+            echo "Installing with frozen lockfile..."
+            pnpm install --frozen-lockfile
+          else
+            echo "Warning: pnpm-lock.yaml not found, installing without frozen lockfile..."
+            pnpm install
+          fi
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate --filter @cargoro/database
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          NODE_ENV: test
+
+      - name: Build applications
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,format=long
             type=ref,event=branch
-            type=ref,event=tag
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: 이미지 빌드 및 푸시
-        uses: docker/build-push-action@v4
+      - name: Build and push Docker images
+        id: build
+        uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: .
+          file: ./infra/docker/Dockerfile.multi-stage
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            ENVIRONMENT=${{ needs.determine-environment.outputs.environment }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
 
-  deploy-to-k8s:
-    name: ${{ github.event.inputs.environment || 'staging' }} 환경에 배포
-    needs: build-and-push
+  deploy-infrastructure:
+    name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment || 'staging' }}
-    
+    needs: [determine-environment, build-and-test]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    if: needs.determine-environment.outputs.environment == 'production' || github.ref == 'refs/heads/develop'
     steps:
-      - name: 소스코드 체크아웃
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: kubeconfig 설정
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.6.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ env.KUBECONFIG }}" > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          cd infra/terraform
+          terraform init
 
-      - name: Helm 설치
+      - name: Terraform Plan
+        run: |
+          cd infra/terraform
+          terraform plan -var="environment=${{ needs.determine-environment.outputs.environment }}" -out=tfplan
+
+      - name: Terraform Apply
+        if: needs.determine-environment.outputs.is_production == 'true'
+        run: |
+          cd infra/terraform
+          terraform apply -auto-approve tfplan
+
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [determine-environment, build-and-test, deploy-infrastructure]
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    if: always() && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
-          version: '3.12.0'
+          version: 'latest'
 
-      - name: kubectl 설치
+      - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
-      - name: 배포 환경 확인
-        id: deployment-env
+      - name: Configure Kubernetes context
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          echo "환경: $ENV"
-          echo "ENV=$ENV" >> $GITHUB_ENV
-          
-      - name: Helm 차트 업데이트 및 배포
-        run: |
-          ENV=${{ env.ENV }}
-          
-          # values 파일 선택
-          VALUES_FILE="infra/k8s/values-${ENV}.yaml"
-          if [ ! -f "$VALUES_FILE" ]; then
-            VALUES_FILE="infra/k8s/values.yaml"
-            echo "환경별 values 파일을 찾을 수 없어 기본 values.yaml 사용"
-          fi
-          
-          # 네임스페이스 확인 및 생성
-          NAMESPACE="cargoro-${ENV}"
-          kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
-          
-          # 이미지 태그 가져오기 (SHA 기준)
-          API_GATEWAY_TAG=$(echo '${{ needs.build-and-push.outputs.image_tags }}' | grep -o "${{ env.REGISTRY }}/${{ github.repository }}/api-gateway@sha256:[a-f0-9]*" | head -1)
-          WORKER_TAG=$(echo '${{ needs.build-and-push.outputs.image_tags }}' | grep -o "${{ env.REGISTRY }}/${{ github.repository }}/worker@sha256:[a-f0-9]*" | head -1)
-          
-          # Helm 배포
-          helm upgrade --install cargoro-${ENV} ./infra/k8s \
-            --namespace $NAMESPACE \
-            --values $VALUES_FILE \
-            --set apiGateway.image=$API_GATEWAY_TAG \
-            --set worker.image=$WORKER_TAG \
-            --set global.environment=$ENV
-          
-          echo "배포 완료: $NAMESPACE 네임스페이스의 cargoro-${ENV} 릴리스"
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+          kubectl config use-context ${{ vars.K8S_CONTEXT }}
 
-  verify-deployment:
-    name: 배포 검증
-    needs: deploy-to-k8s
+      - name: Create namespace if not exists
+        run: |
+          export KUBECONFIG=kubeconfig
+          kubectl create namespace cargoro-${{ needs.determine-environment.outputs.environment }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy with Rolling Update
+        if: inputs.deployment_type == 'rolling' || inputs.deployment_type == ''
+        run: |
+          export KUBECONFIG=kubeconfig
+          cd infra/k8s
+          helm upgrade --install cargoro-${{ needs.determine-environment.outputs.environment }} . \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} \
+            --values values-${{ needs.determine-environment.outputs.environment }}.yaml \
+            --set global.image.tag=${{ needs.build-and-test.outputs.image-tag }} \
+            --set global.image.repository=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set global.environment=${{ needs.determine-environment.outputs.environment }} \
+            --atomic \
+            --timeout 15m \
+            --wait
+
+      - name: Deploy with Canary Strategy
+        if: inputs.deployment_type == 'canary'
+        run: |
+          export KUBECONFIG=kubeconfig
+          cd infra/k8s
+
+          # Deploy canary version (10% traffic)
+          helm upgrade --install cargoro-${{ needs.determine-environment.outputs.environment }}-canary . \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} \
+            --values values-${{ needs.determine-environment.outputs.environment }}.yaml \
+            --values values-canary.yaml \
+            --set global.image.tag=${{ needs.build-and-test.outputs.image-tag }} \
+            --set global.image.repository=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set global.environment=${{ needs.determine-environment.outputs.environment }} \
+            --set canary.enabled=true \
+            --set canary.weight=10 \
+            --atomic \
+            --timeout 10m \
+            --wait
+
+      - name: Deploy with Blue-Green Strategy
+        if: inputs.deployment_type == 'blue-green'
+        run: |
+          export KUBECONFIG=kubeconfig
+          cd infra/k8s
+
+          # Deploy to green environment
+          helm upgrade --install cargoro-${{ needs.determine-environment.outputs.environment }}-green . \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} \
+            --values values-${{ needs.determine-environment.outputs.environment }}.yaml \
+            --values values-blue-green.yaml \
+            --set global.image.tag=${{ needs.build-and-test.outputs.image-tag }} \
+            --set global.image.repository=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set global.environment=${{ needs.determine-environment.outputs.environment }} \
+            --set blueGreen.slot=green \
+            --atomic \
+            --timeout 10m \
+            --wait
+
+  health-check:
+    name: Health Check
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment || 'staging' }}
-    
+    needs: [determine-environment, deploy-kubernetes]
     steps:
-      - name: kubeconfig 설정
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ env.KUBECONFIG }}" > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+      - name: Wait for deployment to stabilize
+        run: sleep 60
 
-      - name: kubectl 설치
-        uses: azure/setup-kubectl@v3
+      - name: Health check
+        run: |
+          if [[ "${{ needs.determine-environment.outputs.environment }}" == "production" ]]; then
+            HEALTH_URL="https://api.cargoro.com/health"
+          else
+            HEALTH_URL="https://api-${{ needs.determine-environment.outputs.environment }}.cargoro.com/health"
+          fi
+
+          for i in {1..10}; do
+            if curl -f "$HEALTH_URL"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check failed, retrying in 30s..."
+            sleep 30
+          done
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+      - name: Run smoke tests
+        run: |
+          # Add smoke tests here
+          echo "Running smoke tests..."
+          # Example: API endpoint tests, database connectivity, etc.
+
+  promote-canary:
+    name: Promote Canary
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-kubernetes, health-check]
+    if: inputs.deployment_type == 'canary' && needs.health-check.result == 'success'
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}-canary-promotion
+      url: ${{ steps.get-url.outputs.url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl and Helm
+        uses: azure/setup-helm@v3
         with:
           version: 'latest'
 
-      - name: 배포 상태 확인
+      - name: Configure Kubernetes context
         run: |
-          ENV=${{ github.event.inputs.environment || 'staging' }}
-          NAMESPACE="cargoro-${ENV}"
-          
-          echo "API 게이트웨이 배포 상태"
-          kubectl rollout status deployment/api-gateway -n $NAMESPACE
-          
-          echo "워커 배포 상태"
-          kubectl rollout status deployment/worker -n $NAMESPACE
-          
-          echo "서비스 상태"
-          kubectl get all -n $NAMESPACE 
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Promote canary to 100%
+        run: |
+          export KUBECONFIG=kubeconfig
+          cd infra/k8s
+          helm upgrade cargoro-${{ needs.determine-environment.outputs.environment }} . \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} \
+            --reuse-values \
+            --set canary.weight=100 \
+            --wait
+
+      - name: Cleanup canary deployment
+        run: |
+          export KUBECONFIG=kubeconfig
+          helm uninstall cargoro-${{ needs.determine-environment.outputs.environment }}-canary \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }}
+
+  switch-blue-green:
+    name: Switch Blue-Green
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-kubernetes, health-check]
+    if: inputs.deployment_type == 'blue-green' && needs.health-check.result == 'success'
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}-blue-green-switch
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl and Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Configure Kubernetes context
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Switch traffic to green
+        run: |
+          export KUBECONFIG=kubeconfig
+          cd infra/k8s
+          # Update ingress to point to green
+          kubectl patch ingress cargoro-ingress \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} \
+            --type='merge' \
+            --patch='{"spec":{"rules":[{"host":"api.cargoro.com","http":{"paths":[{"path":"/","pathType":"Prefix","backend":{"service":{"name":"cargoro-green","port":{"number":80}}}}]}}]}}'
+
+      - name: Cleanup blue deployment
+        run: |
+          export KUBECONFIG=kubeconfig
+          helm uninstall cargoro-${{ needs.determine-environment.outputs.environment }}-blue \
+            --namespace cargoro-${{ needs.determine-environment.outputs.environment }} || true
+
+  notify-deployment:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [determine-environment, build-and-test, deploy-kubernetes, health-check]
+    if: always()
+    steps:
+      - name: Set deployment status
+        id: status
+        run: |
+          if [[ "${{ needs.health-check.result }}" == "success" ]]; then
+            echo "status=✅ SUCCESS" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ FAILED" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get deployment URL
+        id: url
+        run: |
+          if [[ "${{ needs.determine-environment.outputs.environment }}" == "production" ]]; then
+            echo "url=https://api.cargoro.com" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://api-${{ needs.determine-environment.outputs.environment }}.cargoro.com" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "text": "${{ steps.status.outputs.status }} CarGoro 배포 완료",
+              "attachments": [
+                {
+                  "color": "${{ steps.status.outputs.color }}",
+                  "fields": [
+                    {
+                      "title": "Environment",
+                      "value": "${{ needs.determine-environment.outputs.environment }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "${{ github.ref_name }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Deployment Type",
+                      "value": "${{ inputs.deployment_type || 'rolling' }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Image Tag",
+                      "value": "${{ needs.build-and-test.outputs.image-tag }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Deployed by",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "URL",
+                      "value": "${{ steps.url.outputs.url }}",
+                      "short": true
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

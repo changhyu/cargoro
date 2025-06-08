@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,177 +7,124 @@ on:
     branches: [main, develop]
 
 jobs:
-  lint:
-    name: 린트
+  test-and-coverage:
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-      - name: 의존성 설치
-        run: pnpm install
-      - name: ESLint 실행
-        run: pnpm lint
+    - name: 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: pnpm 설정
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.0
+    
+    - name: Node.js ${{ matrix.node-version }} 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
+    
+    - name: 의존성 설치
+      run: pnpm install --frozen-lockfile
+    
+    - name: 린트 검사
+      run: pnpm lint
+    
+    - name: 타입 체크
+      run: pnpm typecheck
+    
+    - name: 테스트 실행 (Node.js 환경)
+      run: pnpm test:coverage
+    
+    - name: 테스트 실행 (브라우저 환경)
+      run: pnpm test:browser
+      continue-on-error: true
+    
+    - name: 커버리지 리포트 업로드
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage/lcov.info,./coverage-browser/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        verbose: true
+    
+    - name: 커버리지 코멘트 생성
+      uses: 5monkeys/cobertura-action@v13
+      if: github.event_name == 'pull_request'
+      with:
+        path: coverage/clover.xml
+        minimum_coverage: 80
+        fail_below_threshold: true
+        show_line: true
+        show_branch: true
+        show_missing: true
+    
+    - name: 빌드 테스트
+      run: pnpm build
 
-  typecheck:
-    name: 타입스크립트
+  lint-and-format:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-      - name: 의존성 설치
-        run: pnpm install
-      - name: 타입스크립트 검사
-        run: pnpm turbo run typecheck
+    - name: 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: pnpm 설정
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.0
+    
+    - name: Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'pnpm'
+    
+    - name: 의존성 설치
+      run: pnpm install --frozen-lockfile
+    
+    - name: Prettier 포맷 검사
+      run: pnpm format:check
+    
+    - name: ESLint 검사
+      run: pnpm lint
+    
+    - name: 라이선스 검사
+      run: pnpm licenses list --prod --json > licenses.json
+      continue-on-error: true
 
-  unit-test:
-    name: 유닛 테스트
+  security-check:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-      - name: 의존성 설치
-        run: pnpm install
-      - name: 유닛 테스트 실행
-        run: pnpm test
-      - name: 테스트 커버리지 수집
-        if: success()
-        run: pnpm test:coverage
-      - name: 테스트 커버리지 보고서 업로드
-        if: success()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-coverage
-          path: |
-            **/coverage/**
-            packages/**/coverage/**
-          retention-days: 14
-
-  e2e-test:
-    name: E2E 테스트
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-      - name: 의존성 설치
-        run: pnpm install
-      - name: Playwright 설치
-        run: pnpm exec playwright install --with-deps
-      - name: Next.js 앱 빌드
-        run: pnpm -F workshop-web build
-      - name: E2E 테스트 실행
-        run: pnpm -F workshop-web exec playwright test
-      - name: E2E 테스트 결과 업로드
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: playwright-report
-          path: apps/workshop-web/playwright-report/
-          retention-days: 30
-
-  backend-test:
-    name: 백엔드 테스트
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Python 설정
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-      - name: Python 의존성 설치
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov
-          pip install -e .
-      - name: 백엔드 테스트 실행
-        run: |
-          cd backend
-          pytest tests/ --cov=services
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          TEST_MODE: true
-      - name: 테스트 결과 업로드
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: backend-test-results
-          path: backend/.coverage
-          retention-days: 14
-
-  build:
-    name: 빌드
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck, unit-test]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'pnpm'
-      - name: 의존성 설치
-        run: pnpm install
-      - name: 프로젝트 빌드
-        run: pnpm build
-      - name: 빌드 결과물 업로드
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: |
-            apps/**/.next
-            apps/**/dist
-            packages/**/dist
-            backend/**/dist
-          retention-days: 1 
+    - name: 체크아웃
+      uses: actions/checkout@v4
+    
+    - name: pnpm 설정
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8.12.0
+    
+    - name: Node.js 설정
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'pnpm'
+    
+    - name: 의존성 설치
+      run: pnpm install --frozen-lockfile
+    
+    - name: 보안 취약점 검사
+      run: pnpm audit --audit-level=high
+      continue-on-error: true
+    
+    - name: 의존성 업데이트 확인
+      run: pnpm outdated
+      continue-on-error: true

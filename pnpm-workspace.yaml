@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'backend/*'
+  - 'backend/services/*'
+  - 'backend/database'
+  - 'backend/gateway'
+  - 'backend/jobs'
+  - 'scripts'
+  - 'eslint-config-custom'

@@ -1,0 +1,9 @@
+dist/
+node_modules/
+.turbo/
+*.js.map
+*.d.ts
+build-exports.js
+scripts/build.js
+*.config.js
+*.config.ts 

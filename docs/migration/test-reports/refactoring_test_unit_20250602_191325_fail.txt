@@ -1,0 +1,610 @@
+===== 리팩토링 테스트 보고서 (unit) =====
+실행 시간: 2025-06-02 19:13:25
+결과: 실패
+
+===== 테스트 출력 =====
+
+============================= test session starts ==============================
+platform darwin -- Python 3.11.7, pytest-8.3.5, pluggy-1.6.0 -- /Users/gongchanghyeon/.pyenv/versions/3.11.7/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+configfile: pytest.ini
+plugins: anyio-4.9.0, mock-3.14.1, cov-6.1.1, asyncio-1.0.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 0 items / 4 errors
+
+ERROR: Coverage failure: total of 1 is less than fail-under=10
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/unit/fleet/test_driver_model.py ____________
+ImportError while importing test module '/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests/unit/fleet/test_driver_model.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/python.py:493: in importtestmodule
+    mod = import_path(
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../../.pyenv/versions/3.11.7/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:185: in exec_module
+    exec(co, module.__dict__)
+backend/tests/unit/fleet/test_driver_model.py:8: in <module>
+    from backend.services.fleet_api.lib.models.driver import (
+backend/services/fleet_api/lib/__init__.py:7: in <module>
+    from . import routes
+backend/services/fleet_api/lib/routes/__init__.py:2: in <module>
+    from lib.routes import (
+E   ModuleNotFoundError: No module named 'lib'
+------------------------------- Captured stdout --------------------------------
+🔧 Configuring pytest paths...
+📁 Backend root: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+✅ core_api imported successfully
+✅ auth imported successfully
+❌ Failed to import repair: cannot import name 'Maintenance' from 'prisma.models' (/Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/prisma/models.py)
+❌ Failed to import vehicle: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+✅ fleet_api imported successfully
+✅ admin_api imported successfully
+✅ delivery_api imported successfully
+✅ fastapi_api imported successfully
+✅ parts_api imported successfully
+✅ repair_api imported successfully
+✅ core_api imported successfully
+✅ auth imported successfully
+⚠️  repair import failed: cannot import name 'Maintenance' from 'prisma.models' (/Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/prisma/models.py)
+⚠️  vehicle import failed: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+✅ fleet_api imported successfully
+✅ admin_api imported successfully
+✅ delivery_api imported successfully
+✅ fastapi_api imported successfully
+✅ parts_api imported successfully
+✅ repair_api imported successfully
+✅ Services module imported successfully in conftest
+✅ services.core_api imported successfully in conftest
+❌ Failed to import shared in conftest: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+🔍 Final Python path includes:
+  0: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+  1: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services
+  2: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/shared
+  3: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests
+Backend root: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+Services path: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services
+Python path includes backend: True
+Python path includes services: True
+🔧 Configuring pytest paths...
+📁 Backend root: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+✅ core_api imported successfully
+✅ auth imported successfully
+❌ repair import failed: cannot import name 'Maintenance' from 'prisma.models' (/Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/prisma/models.py)
+❌ vehicle import failed: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+✅ fleet_api imported successfully
+✅ admin_api imported successfully
+✅ delivery_api imported successfully
+✅ fastapi_api imported successfully
+✅ parts_api imported successfully
+✅ repair_api imported successfully
+✅ Services module imported successfully in conftest
+✅ services.core_api imported successfully in conftest
+❌ Shared module import failed in conftest: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+🔍 Final Python path includes:
+  0: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/shared
+  1: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services
+  2: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests
+  3: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+Backend root: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend
+Services path: /Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services
+Python path includes backend: True
+Python path includes services: True
+✅ core_api imported successfully
+✅ auth imported successfully
+❌ Failed to import repair: cannot import name 'Maintenance' from 'prisma.models' (/Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/prisma/models.py)
+❌ Failed to import vehicle: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+
+For further information visit https://errors.pydantic.dev/2.11/u/import-error
+✅ fleet_api imported successfully
+✅ admin_api imported successfully
+✅ delivery_api imported successfully
+✅ fastapi_api imported successfully
+✅ parts_api imported successfully
+✅ repair_api imported successfully
+___________ ERROR collecting tests/unit/fleet/test_driver_routes.py ____________
+ImportError while importing test module '/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests/unit/fleet/test_driver_routes.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/python.py:493: in importtestmodule
+    mod = import_path(
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../../.pyenv/versions/3.11.7/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:185: in exec_module
+    exec(co, module.__dict__)
+backend/tests/unit/fleet/test_driver_routes.py:10: in <module>
+    from backend.services.fleet_api.lib.models.driver import (
+backend/services/fleet_api/lib/__init__.py:7: in <module>
+    from . import routes
+backend/services/fleet_api/lib/routes/__init__.py:2: in <module>
+    from lib.routes import (
+E   ModuleNotFoundError: No module named 'lib'
+_______ ERROR collecting tests/unit/fleet/test_driving_record_routes.py ________
+ImportError while importing test module '/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests/unit/fleet/test_driving_record_routes.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/python.py:493: in importtestmodule
+    mod = import_path(
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../../.pyenv/versions/3.11.7/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:185: in exec_module
+    exec(co, module.__dict__)
+backend/tests/unit/fleet/test_driving_record_routes.py:12: in <module>
+    from backend.services.fleet_api.lib.routes.driving_record_routes import router
+backend/services/fleet_api/lib/__init__.py:7: in <module>
+    from . import routes
+backend/services/fleet_api/lib/routes/__init__.py:2: in <module>
+    from lib.routes import (
+E   ModuleNotFoundError: No module named 'lib'
+____________ ERROR collecting tests/unit/fleet/test_lease_routes.py ____________
+ImportError while importing test module '/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/tests/unit/fleet/test_lease_routes.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/python.py:493: in importtestmodule
+    mod = import_path(
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../../.pyenv/versions/3.11.7/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:185: in exec_module
+    exec(co, module.__dict__)
+backend/tests/unit/fleet/test_lease_routes.py:12: in <module>
+    from backend.services.fleet_api.lib.routes.lease_routes import router
+backend/services/fleet_api/lib/__init__.py:7: in <module>
+    from . import routes
+backend/services/fleet_api/lib/routes/__init__.py:2: in <module>
+    from lib.routes import (
+E   ModuleNotFoundError: No module named 'lib'
+=============================== warnings summary ===============================
+../../../.pyenv/versions/3.11.7/lib/python3.11/site-packages/passlib/utils/__init__.py:854
+  /Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
+    from crypt import crypt as _crypt
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.11.7-final-0 _______________
+
+Name                                                                                              Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------------------------------------------------------
+backend/__init__.py                                                                                   0      0   100%
+backend/conftest.py                                                                                  85     31    64%   65-66, 72-73, 78, 105-119, 125-130, 136-140, 146-149
+backend/database/db_operations.py                                                                    57     41    28%   24-35, 42-49, 56-61, 67-75, 80-87, 94-101
+backend/debug_create_repair.py                                                                       21     21     0%   3-51
+backend/run_basic_tests.py                                                                           20     20     0%   9-52
+backend/run_tests.py                                                                                 68     68     0%   8-136
+backend/run_unit_tests.py                                                                            70     70     0%   9-173
+backend/services/__init__.py                                                                         51     18    65%   12-13, 19-20, 25, 32, 40-41, 47-48, 54-55, 61-62, 68-69, 75-76
+backend/services/admin_api/__init__.py                                                                0      0   100%
+backend/services/admin_api/lib/__init__.py                                                            4      4     0%   7-11
+backend/services/admin_api/lib/database.py                                                           33     33     0%   1-79
+backend/services/admin_api/lib/routes/__init__.py                                                     1      1     0%   2
+backend/services/admin_api/lib/routes/audit.py                                                      243    243     0%   1-511
+backend/services/admin_api/lib/server.py                                                             71     71     0%   7-185
+backend/services/admin_api/lib/services/__init__.py                                                   0      0   100%
+backend/services/admin_api/lib/utils/__init__.py                                                      0      0   100%
+backend/services/admin_api/lib/utils/response_utils.py                                               39     39     0%   1-129
+backend/services/admin_api/main.py                                                                    8      8     0%   6-19
+backend/services/admin_api/tests/__init__.py                                                          0      0   100%
+backend/services/admin_api/tests/integration/__init__.py                                              0      0   100%
+backend/services/admin_api/tests/integration/test_audit_api.py                                      149    149     0%   1-320
+backend/services/admin_api/tests/unit/__init__.py                                                     1      1     0%   7
+backend/services/admin_api/tests/unit/conftest.py                                                    78     78     0%   7-259
+backend/services/admin_api/tests/unit/run_tests_unit.py                                              35     35     0%   8-98
+backend/services/admin_api/tests/unit/test_audit_routes_unit.py                                     136    136     0%   1-427
+backend/services/admin_api/tests/unit/test_response_utils_unit.py                                   105    105     0%   1-178
+backend/services/auth/__init__.py                                                                     1      0   100%
+backend/services/auth/clerk_auth.py                                                                  78     78     0%   7-239
+backend/services/auth/middleware.py                                                                  68     68     0%   7-162
+backend/services/auth/services.py                                                                    44     28    36%   33, 47, 61-68, 84-88, 108-132, 148-153, 172-180
+backend/services/core_api/__init__.py                                                                 0      0   100%
+backend/services/core_api/config/__init__.py                                                          0      0   100%
+backend/services/core_api/config/swagger.py                                                          12     12     0%   7-70
+backend/services/core_api/lib/__init__.py                                                             8      8     0%   7-15
+backend/services/core_api/lib/app.py                                                                235    235     0%   1-553
+backend/services/core_api/lib/config/__init__.py                                                      0      0   100%
+backend/services/core_api/lib/config/swagger.py                                                      33     33     0%   6-134
+backend/services/core_api/lib/dependencies.py                                                        71     71     0%   1-161
+backend/services/core_api/lib/middleware/__init__.py                                                  0      0   100%
+backend/services/core_api/lib/middleware/auth_middleware.py                                          82     82     0%   6-178
+backend/services/core_api/lib/models/__init__.py                                                      2      2     0%   5-38
+backend/services/core_api/lib/models/models.py                                                      101    101     0%   1-155
+backend/services/core_api/lib/routes/__init__.py                                                      0      0   100%
+backend/services/core_api/lib/routes/auth_routes.py                                                 171    171     0%   1-509
+backend/services/core_api/lib/routes/organization_routes.py                                          36     36     0%   1-130
+backend/services/core_api/lib/routes/permission_routes.py                                            92     92     0%   1-305
+backend/services/core_api/lib/routes/user_routes_enhanced.py                                         70     70     0%   1-215
+backend/services/core_api/lib/server.py                                                              63     63     0%   7-174
+backend/services/core_api/lib/services/__init__.py                                                    0      0   100%
+backend/services/core_api/lib/services/auth_service.py                                               52     52     0%   6-160
+backend/services/core_api/lib/utils/__init__.py                                                       0      0   100%
+backend/services/core_api/lib/utils/response_utils.py                                                41     41     0%   1-139
+backend/services/core_api/main.py                                                                    31     31     0%   6-77
+backend/services/core_api/middleware/__init__.py                                                      0      0   100%
+backend/services/core_api/routes/__init__.py                                                          5      5     0%   7-12
+backend/services/core_api/routes/auth_routes.py                                                      19     19     0%   7-43
+backend/services/core_api/routes/organization_routes.py                                              31     31     0%   7-67
+backend/services/core_api/routes/permission_routes.py                                                31     31     0%   7-67
+backend/services/core_api/routes/user_routes_enhanced.py                                             37     37     0%   7-79
+backend/services/core_api/run_migrations.py                                                          27     27     0%   1-52
+backend/services/core_api/tests/__init__.py                                                           0      0   100%
+backend/services/core_api/tests/integration/__init__.py                                               0      0   100%
+backend/services/core_api/tests/integration/test_integration.py                                     174    174     0%   3-482
+backend/services/core_api/tests/run_tests.py                                                         30     30     0%   4-54
+backend/services/core_api/tests/unit/__init__.py                                                      0      0   100%
+backend/services/core_api/tests/unit/test_app_unit.py                                               112    112     0%   1-219
+backend/services/core_api/tests/unit/test_auth_routes_unit.py                                       224    224     0%   7-408
+backend/services/core_api/tests/unit/test_setup.py                                                   29     29     0%   3-73
+backend/services/core_api/tests/unit/test_setup_unit.py                                              54     54     0%   3-164
+backend/services/core_api/tests/unit/test_user_routes_unit.py                                       217    217     0%   7-484
+backend/services/delivery_api/__init__.py                                                             0      0   100%
+backend/services/delivery_api/lib/__init__.py                                                         5      5     0%   7-12
+backend/services/delivery_api/lib/database.py                                                        87     87     0%   1-263
+backend/services/delivery_api/lib/database_old.py                                                    66     66     0%   1-244
+backend/services/delivery_api/lib/models/__init__.py                                                  1      1     0%   3
+backend/services/delivery_api/lib/models/models.py                                                  156    156     0%   1-206
+backend/services/delivery_api/lib/routes/__init__.py                                                  1      1     0%   3
+backend/services/delivery_api/lib/routes/delivery_routes.py                                         244    244     0%   1-683
+backend/services/delivery_api/lib/routes/driver_schedule_routes.py                                  125    125     0%   7-365
+backend/services/delivery_api/lib/routes/route_routes.py                                            127    127     0%   7-409
+backend/services/delivery_api/lib/server.py                                                          53     53     0%   7-149
+backend/services/delivery_api/lib/services/__init__.py                                                0      0   100%
+backend/services/delivery_api/lib/utils/__init__.py                                                   0      0   100%
+backend/services/delivery_api/lib/utils/model_conversion.py                                          41     41     0%   4-111
+backend/services/delivery_api/lib/utils/response_utils.py                                            41     41     0%   1-144
+backend/services/delivery_api/main.py                                                                 8      8     0%   6-19
+backend/services/delivery_api/new_main.py                                                             8      8     0%   6-19
+backend/services/delivery_api/tests/__init__.py                                                       0      0   100%
+backend/services/delivery_api/tests/integration/__init__.py                                           0      0   100%
+backend/services/delivery_api/tests/unit/__init__.py                                                  0      0   100%
+backend/services/delivery_api/tests/unit/conftest.py                                                 88     88     0%   3-194
+backend/services/delivery_api/tests/unit/test_delivery_routes_unit.py                               381    381     0%   7-750
+backend/services/delivery_api/tests/unit/test_models_unit.py                                        187    187     0%   1-400
+backend/services/fastapi_api/__init__.py                                                              0      0   100%
+backend/services/fastapi_api/lib/__init__.py                                                          6      6     0%   7-13
+backend/services/fastapi_api/lib/core/__init__.py                                                     0      0   100%
+backend/services/fastapi_api/lib/middleware/__init__.py                                               0      0   100%
+backend/services/fastapi_api/lib/models/__init__.py                                                   0      0   100%
+backend/services/fastapi_api/lib/routes/__init__.py                                                   0      0   100%
+backend/services/fastapi_api/lib/services/__init__.py                                                 0      0   100%
+backend/services/fastapi_api/main.py                                                                 25     25     0%   6-67
+backend/services/fastapi_api/tests/__init__.py                                                        0      0   100%
+backend/services/fastapi_api/tests/integration/__init__.py                                            0      0   100%
+backend/services/fastapi_api/tests/unit/__init__.py                                                   0      0   100%
+backend/services/fleet_api/__init__.py                                                                0      0   100%
+backend/services/fleet_api/lib/__init__.py                                                            5      4    20%   8-12
+backend/services/fleet_api/lib/models/__init__.py                                                     4      4     0%   2-27
+backend/services/fleet_api/lib/models/assignment.py                                                  28     28     0%   1-38
+backend/services/fleet_api/lib/models/contract.py                                                    81     81     0%   1-122
+backend/services/fleet_api/lib/models/driver.py                                                      78     78     0%   1-123
+backend/services/fleet_api/lib/models/driver_new.py                                                  78     78     0%   1-123
+backend/services/fleet_api/lib/models/driver_performance.py                                          96     96     0%   4-149
+backend/services/fleet_api/lib/models/driver_performance_new.py                                      96     96     0%   4-149
+backend/services/fleet_api/lib/models/location.py                                                    47     47     0%   1-74
+backend/services/fleet_api/lib/models/maintenance.py                                                 83     83     0%   4-138
+backend/services/fleet_api/lib/models/maintenance_new.py                                             83     83     0%   4-138
+backend/services/fleet_api/lib/models/models.py                                                     210    210     0%   1-282
+backend/services/fleet_api/lib/models/notification.py                                                35     35     0%   5-48
+backend/services/fleet_api/lib/models/vehicle.py                                                     83     83     0%   1-114
+backend/services/fleet_api/lib/models/vehicle_new.py                                                 83     83     0%   1-114
+backend/services/fleet_api/lib/routes/__init__.py                                                     2      1    50%   13
+backend/services/fleet_api/lib/routes/assignment_routes.py                                           14     14     0%   5-29
+backend/services/fleet_api/lib/routes/contract_routes.py                                            193    193     0%   1-494
+backend/services/fleet_api/lib/routes/driver_performance_routes.py                                   75     75     0%   4-205
+backend/services/fleet_api/lib/routes/driver_performance_routes_new.py                               75     75     0%   4-205
+backend/services/fleet_api/lib/routes/driver_routes.py                                              122    122     0%   1-282
+backend/services/fleet_api/lib/routes/driver_routes_new.py                                          122    122     0%   1-282
+backend/services/fleet_api/lib/routes/driving_record_routes.py                                      236    236     0%   1-512
+backend/services/fleet_api/lib/routes/driving_record_routes_new.py                                  236    236     0%   1-512
+backend/services/fleet_api/lib/routes/lease_routes.py                                               121    121     0%   4-247
+backend/services/fleet_api/lib/routes/lease_routes_new.py                                           121    121     0%   4-247
+backend/services/fleet_api/lib/routes/location_routes.py                                            167    167     0%   1-449
+backend/services/fleet_api/lib/routes/maintenance_routes.py                                          87     87     0%   4-238
+backend/services/fleet_api/lib/routes/maintenance_routes_new.py                                      87     87     0%   4-238
+backend/services/fleet_api/lib/routes/notification_routes.py                                         70     70     0%   5-123
+backend/services/fleet_api/lib/routes/vehicle_routes.py                                             142    142     0%   1-374
+backend/services/fleet_api/lib/routes/vehicle_routes_new.py                                         142    142     0%   1-374
+backend/services/fleet_api/lib/server.py                                                             71     71     0%   7-179
+backend/services/fleet_api/lib/services/__init__.py                                                   0      0   100%
+backend/services/fleet_api/lib/utils/__init__.py                                                      0      0   100%
+backend/services/fleet_api/lib/utils/model_conversion.py                                             41     41     0%   4-111
+backend/services/fleet_api/lib/utils/response_utils.py                                               44     44     0%   1-148
+backend/services/fleet_api/main.py                                                                    8      8     0%   6-19
+backend/services/fleet_api/tests/__init__.py                                                          1      1     0%   7
+backend/services/fleet_api/tests/conftest.py                                                          0      0   100%
+backend/services/fleet_api/tests/integration/__init__.py                                              0      0   100%
+backend/services/fleet_api/tests/run_tests.py                                                        35     35     0%   8-98
+backend/services/fleet_api/tests/test_contract_routes.py                                            202    202     0%   1-540
+backend/services/fleet_api/tests/test_location_routes.py                                            246    246     0%   1-560
+backend/services/fleet_api/tests/test_vehicle_assignments.py                                        127    127     0%   1-316
+backend/services/fleet_api/tests/test_vehicle_routes.py                                             106    106     0%   1-255
+backend/services/fleet_api/tests/unit/__init__.py                                                     0      0   100%
+backend/services/fleet_api/tests/unit/routes/__init__.py                                              0      0   100%
+backend/services/fleet_api/tests/unit/routes/test_location_routes.py                                307    307     0%   7-632
+backend/services/fleet_api/tests/unit/test_vehicle_assignment_unit.py                               164    164     0%   5-496
+backend/services/fleet_api/tests/unit/test_vehicle_routes_unit.py                                   234    234     0%   7-495
+backend/services/parts_api/__init__.py                                                                0      0   100%
+backend/services/parts_api/lib/__init__.py                                                            5      5     0%   7-12
+backend/services/parts_api/lib/dependencies.py                                                       15     15     0%   6-37
+backend/services/parts_api/lib/models/__init__.py                                                     2      2     0%   7-34
+backend/services/parts_api/lib/models/erp_sync.py                                                    98     98     0%   5-198
+backend/services/parts_api/lib/models/erp_sync_new.py                                                98     98     0%   5-198
+backend/services/parts_api/lib/models/models.py                                                     218    218     0%   1-259
+backend/services/parts_api/lib/routes/__init__.py                                                     4      4     0%   7-11
+backend/services/parts_api/lib/routes/erp_sync_routes.py                                            101    101     0%   4-291
+backend/services/parts_api/lib/routes/erp_sync_routes_new.py                                        101    101     0%   4-291
+backend/services/parts_api/lib/routes/part_routes.py                                                161    161     0%   1-353
+backend/services/parts_api/lib/routes/supplier_routes.py                                            123    123     0%   1-279
+backend/services/parts_api/lib/server.py                                                             53     53     0%   7-150
+backend/services/parts_api/lib/services/__init__.py                                                   1      1     0%   9
+backend/services/parts_api/lib/services/erp_sync_service.py                                          89     89     0%   1-325
+backend/services/parts_api/lib/utils/__init__.py                                                      2      2     0%   7-9
+backend/services/parts_api/lib/utils/auth.py                                                          8      8     0%   5-35
+backend/services/parts_api/lib/utils/model_conversion.py                                             40     40     0%   4-112
+backend/services/parts_api/lib/utils/response_utils.py                                               39     39     0%   1-132
+backend/services/parts_api/main.py                                                                    8      8     0%   6-19
+backend/services/parts_api/test_simple.py                                                             5      5     0%   1-6
+backend/services/parts_api/test_supplier_routes_new.py                                              132    132     0%   8-396
+backend/services/parts_api/tests/__init__.py                                                          0      0   100%
+backend/services/parts_api/tests/conftest.py                                                         58     58     0%   3-160
+backend/services/parts_api/tests/conftest_new.py                                                     58     58     0%   3-156
+backend/services/parts_api/tests/conftest_old.py                                                    120    120     0%   3-239
+backend/services/parts_api/tests/integration/__init__.py                                              0      0   100%
+backend/services/parts_api/tests/test_part_routes.py                                                 65     65     0%   1-132
+backend/services/parts_api/tests/test_supplier_routes.py                                             69     69     0%   1-146
+backend/services/parts_api/tests/unit/__init__.py                                                     0      0   100%
+backend/services/parts_api/tests/unit/test_part_routes_unit.py                                      556    556     0%   7-982
+backend/services/parts_api/tests/unit/test_supplier_routes_unit.py                                  114    114     0%   7-316
+backend/services/repair/__init__.py                                                                  19      7    63%   22-29, 67
+backend/services/repair/database.py                                                                  77     77     0%   7-114
+backend/services/repair/handlers.py                                                                 344    339     1%   6-831
+backend/services/repair/routers.py                                                                  129    129     0%   7-309
+backend/services/repair/schemas.py                                                                  148    148     0%   7-211
+backend/services/repair/workshop_routers.py                                                          23     23     0%   7-70
+backend/services/repair_api/__init__.py                                                               0      0   100%
+backend/services/repair_api/lib/__init__.py                                                           5      5     0%   7-12
+backend/services/repair_api/lib/models/__init__.py                                                    0      0   100%
+backend/services/repair_api/lib/models/models.py                                                    165    165     0%   6-266
+backend/services/repair_api/lib/routes/__init__.py                                                    0      0   100%
+backend/services/repair_api/lib/routes/repair_routes.py                                             197    197     0%   1-495
+backend/services/repair_api/lib/routes/reservation_routes.py                                        102    102     0%   1-267
+backend/services/repair_api/lib/routes/schedule_routes.py                                           113    113     0%   1-304
+backend/services/repair_api/lib/routes/workshop_routes.py                                            82     82     0%   7-237
+backend/services/repair_api/lib/server.py                                                            52     52     0%   7-143
+backend/services/repair_api/lib/services/__init__.py                                                  0      0   100%
+backend/services/repair_api/lib/utils/__init__.py                                                     0      0   100%
+backend/services/repair_api/lib/utils/model_conversion.py                                            40     40     0%   4-112
+backend/services/repair_api/lib/utils/prisma_utils.py                                                86     86     0%   7-169
+backend/services/repair_api/lib/utils/response_utils.py                                              39     39     0%   1-132
+backend/services/repair_api/main.py                                                                   8      8     0%   6-19
+backend/services/repair_api/tests/__init__.py                                                         0      0   100%
+backend/services/repair_api/tests/integration/__init__.py                                             0      0   100%
+backend/services/repair_api/tests/mocks/__init__.py                                                   0      0   100%
+backend/services/repair_api/tests/mocks/prisma_mock.py                                               91     91     0%   7-173
+backend/services/repair_api/tests/unit/__init__.py                                                    0      0   100%
+backend/services/repair_api/tests/unit/conftest.py                                                  215    215     0%   3-408
+backend/services/repair_api/tests/unit/test_repair_cancellation.py                                  173    173     0%   5-436
+backend/services/repair_api/tests/unit/test_repair_creation.py                                      142    142     0%   5-346
+backend/services/repair_api/tests/unit/test_repair_listing.py                                       148    148     0%   5-324
+backend/services/repair_api/tests/unit/test_repair_routes_unit.py                                   270    270     0%   7-555
+backend/services/repair_api/tests/unit/test_repair_status_update.py                                 116    116     0%   5-292
+backend/services/repair_api/tests/unit/test_reservation_routes_unit.py                              101    101     0%   1-241
+backend/services/repair_api/tests/unit/test_schedule_routes_unit.py                                 123    123     0%   1-264
+backend/services/run_all_tests.py                                                                    58     58     0%   7-106
+backend/services/users/__init__.py                                                                    0      0   100%
+backend/services/users/lib/__init__.py                                                                0      0   100%
+backend/services/users/lib/routes/__init__.py                                                         0      0   100%
+backend/services/users/tests/__init__.py                                                              0      0   100%
+backend/services/users/tests/integration/__init__.py                                                  0      0   100%
+backend/services/users/tests/unit/__init__.py                                                         0      0   100%
+backend/services/vehicle/__init__.py                                                                  2      1    50%   21
+backend/services/vehicle/handlers.py                                                                326    322     1%   12-908
+backend/services/vehicle/routers.py                                                                  87     87     0%   7-216
+backend/setup.py                                                                                      2      2     0%   1-3
+backend/shared/__init__.py                                                                            5      4    20%   8-12
+backend/shared/config/__init__.py                                                                     2      1    50%   9
+backend/shared/config/settings.py                                                                    24     21    12%   12-76
+backend/shared/interfaces.py                                                                         54     54     0%   7-116
+backend/shared/testing/__init__.py                                                                    3      3     0%   7-17
+backend/shared/testing/conftest.py                                                                   26     26     0%   6-55
+backend/shared/testing/mocks.py                                                                     666    666     0%   8-1165
+backend/shared/testing/utils.py                                                                      45     45     0%   7-87
+backend/shared/utils/__init__.py                                                                      2      2     0%   7-13
+backend/shared/utils/logging_utils.py                                                                30     30     0%   6-92
+backend/shared/utils/model_conversion.py                                                             46     46     0%   4-135
+backend/shared/utils/response_utils.py                                                               53     53     0%   8-261
+backend/targeted_coverage_tests.py                                                                  108    108     0%   1-377
+backend/test_repair_simple.py                                                                       119    119     0%   8-294
+backend/tests/__init__.py                                                                             0      0   100%
+backend/tests/conftest.py                                                                           229    113    51%   21, 27-30, 70-71, 77-78, 83, 90, 98-99, 105-106, 112-113, 119-120, 126-127, 133-134, 145-148, 154, 178-181, 187, 199-200, 204, 208, 212, 216, 220, 225-242, 246, 256-257, 267-274, 280-290, 296, 302, 314, 327, 341-359, 365-374, 380-445, 458
+backend/tests/conftest_new.py                                                                       186    186     0%   13-321
+backend/tests/fixtures/__init__.py                                                                    0      0   100%
+backend/tests/fixtures/delivery_fixtures.py                                                          57     57     0%   7-276
+backend/tests/fixtures/parts_fixtures.py                                                             96     96     0%   7-413
+backend/tests/fixtures/repair_fixtures.py                                                           160    160     0%   7-690
+backend/tests/fixtures/vehicle_fixtures.py                                                           60     60     0%   7-256
+backend/tests/fixtures/workshop_fixtures.py                                                          66     66     0%   7-323
+backend/tests/mocks/__init__.py                                                                       0      0   100%
+backend/tests/mocks/prisma_mock.py                                                                  127    127     0%   7-211
+backend/tests/run_tests.py                                                                          194    194     0%   4-335
+backend/tests/test_integration.py                                                                    80     80     0%   1-162
+backend/tests/test_parts_routes_comprehensive.py                                                    249    249     0%   7-588
+backend/tests/test_repair_handlers.py                                                               120    120     0%   1-223
+backend/tests/test_repair_handlers_comprehensive.py                                                 314    314     0%   6-577
+backend/tests/test_sample.py                                                                         50     50     0%   5-86
+backend/tests/test_vehicle_handlers_comprehensive.py                                                407    407     0%   6-807
+backend/tests/unit/fleet/__init__.py                                                                  0      0   100%
+backend/tests/unit/fleet/test_driver_model.py                                                        50     46     8%   15-149
+backend/tests/unit/fleet/test_driver_routes.py                                                       74     68     8%   16-182
+backend/tests/unit/fleet/test_driving_record_routes.py                                              110    103     6%   13-259
+backend/tests/unit/fleet/test_lease_routes.py                                                       134    127     5%   13-310
+backend/tests/utils/__init__.py                                                                       3      3     0%   7-25
+backend/tests/utils/async_mock_helpers.py                                                            55     55     0%   7-149
+backend/tests/utils/conftest.py                                                                       4      4     0%   9-12
+backend/tests/utils/graphql_client.py                                                                39     39     0%   7-120
+backend/tests/utils/mock_utils.py                                                                   126    126     0%   11-384
+backend/tests/utils/module_patcher.py                                                                73     73     0%   8-174
+backend/tests/utils/test_shared_logging_utils.py                                                    231    231     0%   7-469
+backend/tests/utils/test_shared_response_utils.py                                                   207    207     0%   7-478
+backend/tests/utils/test_utils_helpers.py                                                            84     84     0%   11-196
+backend/tests_backup/__init__.py                                                                      0      0   100%
+backend/tests_backup/conftest.py                                                                     24     24     0%   5-42
+backend/tests_backup/conftest_new.py                                                                186    186     0%   13-321
+backend/tests_backup/fixtures/__init__.py                                                             0      0   100%
+backend/tests_backup/fixtures/conftest.py                                                             4      4     0%   9-12
+backend/tests_backup/fixtures/delivery_fixtures.py                                                   57     57     0%   7-276
+backend/tests_backup/fixtures/parts_fixtures.py                                                      96     96     0%   7-413
+backend/tests_backup/fixtures/vehicle_fixtures.py                                                    60     60     0%   7-256
+backend/tests_backup/fixtures/workshop_fixtures.py                                                   66     66     0%   7-323
+backend/tests_backup/integration/__init__.py                                                          0      0   100%
+backend/tests_backup/integration/conftest.py                                                         18     18     0%   8-51
+backend/tests_backup/integration/run_tests.py                                                        69     69     0%   4-119
+backend/tests_backup/integration/test_auth_integration.py                                            23     23     0%   1-80
+backend/tests_backup/integration/test_delivery_integration.py                                        68     68     0%   1-353
+backend/tests_backup/integration/test_fleet_integration.py                                          152    152     0%   1-748
+backend/tests_backup/integration/test_integration.py                                                 55     55     0%   1-265
+backend/tests_backup/integration/test_parts_integration.py                                           88     88     0%   1-451
+backend/tests_backup/integration/test_permissions.py                                                169    169     0%   1-541
+backend/tests_backup/integration/test_permissions_integration.py                                     37     37     0%   1-155
+backend/tests_backup/integration/test_repair_integration.py                                         110    110     0%   1-594
+backend/tests_backup/integration/test_users.py                                                      101    101     0%   1-266
+backend/tests_backup/integration/test_vehicles_integration.py                                        48     48     0%   1-219
+backend/tests_backup/integration/test_workshops_integration.py                                       49     49     0%   1-247
+backend/tests_backup/integration_repair_backup/__init__.py                                            0      0   100%
+backend/tests_backup/integration_repair_backup/test_repair_api.py                                   157    157     0%   1-459
+backend/tests_backup/integration_repair_backup/test_repair_basic.py                                  86     86     0%   7-228
+backend/tests_backup/integration_repair_backup/test_repair_integration.py                           180    180     0%   8-914
+backend/tests_backup/mocks/__init__.py                                                                2      2     0%   7-25
+backend/tests_backup/mocks/prisma_mock.py                                                           127    127     0%   7-211
+backend/tests_backup/organize_tests.py                                                                0      0   100%
+backend/tests_backup/run_tests.py                                                                   194    194     0%   4-335
+backend/tests_backup/test_auth.py                                                                   105    105     0%   12-294
+backend/tests_backup/test_auth_service_comprehensive.py                                             235    235     0%   8-527
+backend/tests_backup/test_basic.py                                                                   23     23     0%   4-44
+backend/tests_backup/test_delivery.py                                                                68     68     0%   1-353
+backend/tests_backup/test_fleet.py                                                                  152    152     0%   1-748
+backend/tests_backup/test_fleet_service.py                                                          397    397     0%   1-1101
+backend/tests_backup/test_parts.py                                                                  195    195     0%   1-910
+backend/tests_backup/test_parts_service.py                                                          329    329     0%   1-921
+backend/tests_backup/test_repair.py                                                                 157    157     0%   1-459
+backend/tests_backup/test_repair_handlers_comprehensive.py                                          397    397     0%   8-849
+backend/tests_backup/test_repair_service.py                                                         242    242     0%   1-672
+backend/tests_backup/test_sample.py                                                                  51     51     0%   7-127
+backend/tests_backup/test_services_imports.py                                                        32     32     0%   7-74
+backend/tests_backup/test_services_module.py                                                         25     25     0%   5-41
+backend/tests_backup/test_shared_testing_mocks_comprehensive.py                                     556    556     0%   8-1035
+backend/tests_backup/test_shared_utils_logging_utils.py                                             191    191     0%   7-345
+backend/tests_backup/test_shared_utils_response_utils.py                                            229    229     0%   7-402
+backend/tests_backup/test_user.py                                                                   263    263     0%   1-710
+backend/tests_backup/test_vehicle.py                                                                321    321     0%   1-1231
+backend/tests_backup/test_workshops.py                                                               49     49     0%   1-247
+backend/tests_backup/unit/__init__.py                                                                 0      0   100%
+backend/tests_backup/unit/run_tests_unit.py                                                          69     69     0%   4-119
+backend/tests_backup/unit/services/__init__.py                                                        0      0   100%
+backend/tests_backup/unit/services/conftest.py                                                        1      1     0%   9
+backend/tests_backup/unit/services/fleet-api/__init__.py                                              0      0   100%
+backend/tests_backup/unit/services/fleet-api/conftest.py                                             16     16     0%   9-31
+backend/tests_backup/unit/services/fleet-api/lib/__init__.py                                          0      0   100%
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/__init__.py                          0      0   100%
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/test_contract_routes.py            343    343     0%   7-670
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/test_contract_routes_simple.py     151    151     0%   8-297
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/test_location_routes.py            273    273     0%   7-571
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/test_location_routes_simple.py     119    119     0%   8-286
+backend/tests_backup/unit/services/fleet-api/lib/routes.disabled/test_vehicle_routes.py             316    316     0%   7-683
+backend/tests_backup/unit/services/repair/__init__.py                                                 0      0   100%
+backend/tests_backup/unit/services/repair/conftest.py                                                16     16     0%   9-31
+backend/tests_backup/unit/services/repair/test_handlers_integrated.py                               968    968     0%   12-1890
+backend/tests_backup/unit/services/repair/test_routers.py                                           148    148     0%   7-507
+backend/tests_backup/unit/services/repair/test_routers_fixed_v2.py                                   81     81     0%   8-206
+backend/tests_backup/unit/services/repair/test_routers_simple.py                                    129    129     0%   8-250
+backend/tests_backup/unit/services/repair/test_workshop_routers_fixed.py                             71     71     0%   7-181
+backend/tests_backup/unit/services/test_auth_service_coverage.py                                    156    156     0%   7-306
+backend/tests_backup/unit/services/test_response_utils_coverage.py                                  145    145     0%   7-310
+backend/tests_backup/unit/services/test_response_utils_fixed.py                                     162    162     0%   7-301
+backend/tests_backup/unit/services/vehicle/__init__.py                                                0      0   100%
+backend/tests_backup/unit/services/vehicle/conftest.py                                               16     16     0%   9-31
+backend/tests_backup/unit/services/vehicle/test_handlers.py                                         477    477     0%   7-1163
+backend/tests_backup/unit/services/vehicle/test_handlers_extended.py                                186    186     0%   8-403
+backend/tests_backup/unit/services/vehicle/test_routers.py                                          201    201     0%   7-534
+backend/tests_backup/unit/services/vehicle/test_routers_fixed.py                                     51     51     0%   7-151
+backend/tests_backup/unit/services/vehicle/test_routers_simple.py                                   124    124     0%   8-211
+backend/tests_backup/unit/test_app_minimal.py                                                        13     13     0%   1-22
+backend/tests_backup/unit/test_permissions_unit.py                                                  144    144     0%   1-425
+backend/tests_backup/unit/test_sample_unit.py                                                       229    229     0%   7-468
+backend/tests_backup/unit/utils/__init__.py                                                           0      0   100%
+backend/tests_backup/unit/utils/test_utils.py                                                         8      8     0%   7-32
+backend/tests_backup/unit/utils/vehicle_handlers_test.py                                             35     35     0%   8-83
+backend/tests_backup/unit/utils/vehicle_routers_test.py                                             139    139     0%   8-416
+backend/tests_backup/utils/__init__.py                                                                3      3     0%   7-25
+backend/tests_backup/utils/async_mock_helpers.py                                                     55     55     0%   7-149
+backend/tests_backup/utils/conftest.py                                                                4      4     0%   9-12
+backend/tests_backup/utils/graphql_client.py                                                         39     39     0%   7-120
+backend/tests_backup/utils/mock_utils.py                                                            126    126     0%   11-384
+backend/tests_backup/utils/module_patcher.py                                                         73     73     0%   8-174
+backend/tests_backup/utils/test_shared_logging_utils.py                                             232    232     0%   6-461
+backend/tests_backup/utils/test_shared_response_utils.py                                            201    201     0%   7-458
+backend/tests_backup/utils/test_utils_helpers.py                                                     84     84     0%   11-196
+-------------------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                             32335  32046     1%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+FAIL Required test coverage of 10% not reached. Total coverage: 0.89%
+=========================== short test summary info ============================
+ERROR backend/tests/unit/fleet/test_driver_model.py
+ERROR backend/tests/unit/fleet/test_driver_routes.py
+ERROR backend/tests/unit/fleet/test_driving_record_routes.py
+ERROR backend/tests/unit/fleet/test_lease_routes.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 4 errors during collection !!!!!!!!!!!!!!!!!!!!
+========================= 1 warning, 4 errors in 7.82s =========================
+
+/Users/gongchanghyeon/.pyenv/versions/3.11.7/lib/python3.11/site-packages/coverage/report_core.py:110: CoverageWarning: Couldn't parse Python file '/Users/gongchanghyeon/Desktop/cargoro/monorepo-root/backend/services/fleet_api/tests/integration/test_vehicle_routes.py' (couldnt-parse)
+  coverage._warn(msg, slug="couldnt-parse")

@@ -1,0 +1,241 @@
+from pydantic import BaseModel, Field, validator, ConfigDict
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from enum import Enum
+from ..models.contract import to_camel
+
+
+class PerformancePeriod(str, Enum):
+    """성능 데이터 집계 기간 유형"""
+
+    DAILY = "daily"  # 일별
+    WEEKLY = "weekly"  # 주별
+    MONTHLY = "monthly"  # 월별
+    QUARTERLY = "quarterly"  # 분기별
+    YEARLY = "yearly"  # 연별
+    CUSTOM = "custom"  # 사용자 정의
+
+
+class DrivingRecordBase(BaseModel):
+    """운행 기록 기본 모델"""
+
+    driverId: str = Field(..., description="운전자 ID")
+    vehicleId: str = Field(..., description="차량 ID")
+    startTime: datetime = Field(..., description="운행 시작 시간")
+    endTime: datetime = Field(..., description="운행 종료 시간")
+    startLocation: Optional[str] = Field(None, description="출발 위치")
+    endLocation: Optional[str] = Field(None, description="도착 위치")
+    distance: float = Field(..., description="주행 거리(km)", ge=0)
+    avgSpeed: Optional[float] = Field(None, description="평균 속도(km/h)", ge=0)
+    maxSpeed: Optional[float] = Field(None, description="최대 속도(km/h)", ge=0)
+    fuelConsumption: Optional[float] = Field(None, description="연료 소비량(L)", ge=0)
+    hardBrakeCount: Optional[int] = Field(None, description="급제동 횟수", ge=0)
+    hardAccelCount: Optional[int] = Field(None, description="급가속 횟수", ge=0)
+    idlingDuration: Optional[int] = Field(None, description="공회전 시간(분)", ge=0)
+    routeData: Optional[Dict[str, Any]] = Field(
+        None, description="경로 데이터(GeoJSON)"
+    )
+    notes: Optional[str] = Field(None, description="메모")
+
+    @validator("endTime")
+    def end_time_after_start_time(cls, v, values):
+        """종료 시간이 시작 시간 이후인지 확인"""
+        if v is not None and "startTime" in values and v < values["startTime"]:
+            raise ValueError("종료 시간은 시작 시간 이후여야 합니다")
+        return v
+
+
+class DrivingRecordCreate(DrivingRecordBase):
+    """운행 기록 생성 모델"""
+
+    pass
+
+
+class DrivingRecordUpdate(BaseModel):
+    """운행 기록 업데이트 모델"""
+
+    startTime: Optional[datetime] = None
+    endTime: Optional[datetime] = None
+    startLocation: Optional[str] = None
+    endLocation: Optional[str] = None
+    distance: Optional[float] = Field(None, ge=0)
+    avgSpeed: Optional[float] = Field(None, ge=0)
+    maxSpeed: Optional[float] = Field(None, ge=0)
+    fuelConsumption: Optional[float] = Field(None, ge=0)
+    hardBrakeCount: Optional[int] = Field(None, ge=0)
+    hardAccelCount: Optional[int] = Field(None, ge=0)
+    idlingDuration: Optional[int] = Field(None, ge=0)
+    routeData: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+
+    @validator("endTime")
+    def end_time_after_start_time(cls, v, values):
+        """종료 시간이 시작 시간 이후인지 확인"""
+        if (
+            v is not None
+            and "startTime" in values
+            and values["startTime"] is not None
+            and v < values["startTime"]
+        ):
+            raise ValueError("종료 시간은 시작 시간 이후여야 합니다")
+        return v
+
+
+class DrivingRecordResponse(DrivingRecordBase):
+    """운행 기록 응답 모델"""
+
+    id: str
+    createdAt: datetime
+    updatedAt: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+
+class DriverPerformanceBase(BaseModel):
+    """운전자 성능 기본 모델"""
+
+    driverId: str = Field(..., description="운전자 ID")
+    periodStart: datetime = Field(..., description="집계 기간 시작")
+    periodEnd: datetime = Field(..., description="집계 기간 종료")
+    totalDistance: float = Field(..., description="총 주행 거리(km)", ge=0)
+    avgSpeed: Optional[float] = Field(None, description="평균 속도(km/h)", ge=0)
+    maxSpeed: Optional[float] = Field(None, description="최대 속도(km/h)", ge=0)
+    hardBrakeCount: Optional[int] = Field(None, description="급제동 횟수", ge=0)
+    hardAccelerationCount: Optional[int] = Field(None, description="급가속 횟수", ge=0)
+    idlingDuration: Optional[int] = Field(None, description="공회전 시간(분)", ge=0)
+    fuelConsumption: Optional[float] = Field(None, description="연료 소비량(L)", ge=0)
+    avgFuelEfficiency: Optional[float] = Field(
+        None, description="평균 연비(km/L)", ge=0
+    )
+    co2Emission: Optional[float] = Field(None, description="CO2 배출량(kg)", ge=0)
+    safetyScore: Optional[int] = Field(
+        None, description="안전 점수(0-100)", ge=0, le=100
+    )
+    ecoScore: Optional[int] = Field(
+        None, description="친환경 점수(0-100)", ge=0, le=100
+    )
+    overallScore: Optional[int] = Field(
+        None, description="종합 점수(0-100)", ge=0, le=100
+    )
+
+    @validator("periodEnd")
+    def end_date_after_start_date(cls, v, values):
+        """종료일이 시작일 이후인지 확인"""
+        if v is not None and "periodStart" in values and v < values["periodStart"]:
+            raise ValueError("종료일은 시작일 이후여야 합니다")
+        return v
+
+
+class DriverPerformanceCreate(DriverPerformanceBase):
+    """운전자 성능 생성 모델"""
+
+    pass
+
+
+class DriverPerformanceUpdate(BaseModel):
+    """운전자 성능 업데이트 모델"""
+
+    periodStart: Optional[datetime] = None
+    periodEnd: Optional[datetime] = None
+    totalDistance: Optional[float] = Field(None, ge=0)
+    avgSpeed: Optional[float] = Field(None, ge=0)
+    maxSpeed: Optional[float] = Field(None, ge=0)
+    hardBrakeCount: Optional[int] = Field(None, ge=0)
+    hardAccelerationCount: Optional[int] = Field(None, ge=0)
+    idlingDuration: Optional[int] = Field(None, ge=0)
+    fuelConsumption: Optional[float] = Field(None, ge=0)
+    avgFuelEfficiency: Optional[float] = Field(None, ge=0)
+    co2Emission: Optional[float] = Field(None, ge=0)
+    safetyScore: Optional[int] = Field(None, ge=0, le=100)
+    ecoScore: Optional[int] = Field(None, ge=0, le=100)
+    overallScore: Optional[int] = Field(None, ge=0, le=100)
+
+    @validator("periodEnd")
+    def end_date_after_start_date(cls, v, values):
+        """종료일이 시작일 이후인지 확인"""
+        if (
+            v is not None
+            and "periodStart" in values
+            and values["periodStart"] is not None
+            and v < values["periodStart"]
+        ):
+            raise ValueError("종료일은 시작일 이후여야 합니다")
+        return v
+
+
+class DriverPerformanceResponse(DriverPerformanceBase):
+    """운전자 성능 응답 모델"""
+
+    id: str
+    createdAt: datetime
+    updatedAt: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+
+class DriverPerformanceFilters(BaseModel):
+    """운전자 성능 필터링 옵션"""
+
+    driverId: Optional[str] = None
+    periodType: Optional[PerformancePeriod] = None
+    startFrom: Optional[datetime] = None
+    startTo: Optional[datetime] = None
+    minSafetyScore: Optional[int] = Field(None, ge=0, le=100)
+    minEcoScore: Optional[int] = Field(None, ge=0, le=100)
+    minOverallScore: Optional[int] = Field(None, ge=0, le=100)
+    page: int = Field(1, ge=1, description="페이지 번호")
+    pageSize: int = Field(10, ge=1, le=100, description="페이지 크기")
+
+
+class DriverPerformanceListResponse(BaseModel):
+    """운전자 성능 목록 응답"""
+
+    items: List[DriverPerformanceResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int
+
+
+class DrivingRecordFilters(BaseModel):
+    """운행 기록 필터링 옵션"""
+
+    driverId: Optional[str] = None
+    vehicleId: Optional[str] = None
+    startTimeFrom: Optional[datetime] = None
+    startTimeTo: Optional[datetime] = None
+    minDistance: Optional[float] = Field(None, ge=0)
+    maxDistance: Optional[float] = Field(None, ge=0)
+    page: int = Field(1, ge=1, description="페이지 번호")
+    pageSize: int = Field(10, ge=1, le=100, description="페이지 크기")
+
+
+class DrivingRecordListResponse(BaseModel):
+    """운행 기록 목록 응답"""
+
+    items: List[DrivingRecordResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int
+
+
+class PerformanceSummary(BaseModel):
+    """성능 요약 정보"""
+
+    totalDrivers: int
+    totalRecords: int
+    totalDistance: float
+    avgSafetyScore: Optional[float]
+    avgEcoScore: Optional[float]
+    avgOverallScore: Optional[float]
+    topPerformers: List[DriverPerformanceResponse]
+    improvementNeeded: List[DriverPerformanceResponse]

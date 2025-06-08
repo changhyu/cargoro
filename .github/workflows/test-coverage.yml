@@ -1,0 +1,219 @@
+name: 테스트 커버리지
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  test-coverage:
+    name: 테스트 및 커버리지 검사
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: pnpm 수동 설치
+        run: |
+          npm install -g pnpm@8
+          pnpm --version
+
+      - name: 디버그 정보
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo "Looking for pnpm-lock.yaml:"
+          find . -name "pnpm-lock.yaml" -type f 2>/dev/null || echo "No pnpm-lock.yaml found"
+
+      - name: 의존성 설치
+        run: |
+          if [ -f "pnpm-lock.yaml" ]; then
+            echo "Installing with frozen lockfile..."
+            pnpm install --frozen-lockfile
+          else
+            echo "Warning: pnpm-lock.yaml not found, installing without frozen lockfile..."
+            pnpm install
+          fi
+
+      - name: 테스트 실행 및 커버리지 생성
+        run: |
+          # 앱별 테스트 실행
+          cd apps/workshop-web && pnpm test:coverage
+          cd ../fleet-manager-web && pnpm test:coverage
+          cd ../delivery-driver && pnpm test:coverage
+          cd ../smart-car-assistant && pnpm test:coverage
+          cd ../parts-web && pnpm test:coverage
+          cd ../superadmin-web && pnpm test:coverage
+          cd ../workshop-mobile && pnpm test:coverage
+
+          # 패키지별 테스트 실행
+          cd ../../packages/ui && pnpm test:coverage
+          cd ../utils && pnpm test:coverage
+          cd ../analytics && pnpm test:coverage
+          cd ../api-client && pnpm test:coverage
+          cd ../auth && pnpm test:coverage
+          cd ../types && pnpm test:coverage
+
+          cd ../../
+
+      - name: 통합 커버리지 보고서 생성
+        run: |
+          mkdir -p coverage
+          echo '{
+            "total": {
+              "lines": { "total": 0, "covered": 0, "skipped": 0, "pct": 0 },
+              "statements": { "total": 0, "covered": 0, "skipped": 0, "pct": 0 },
+              "functions": { "total": 0, "covered": 0, "skipped": 0, "pct": 0 },
+              "branches": { "total": 0, "covered": 0, "skipped": 0, "pct": 0 }
+            }
+          }' > coverage/coverage-summary.json
+
+          # 각 앱과 패키지의 커버리지 정보 수집
+          find apps packages -name "coverage-summary.json" -exec echo {} \; -exec cat {} \; | grep -v "filepath:" > coverage/all-summaries.txt
+
+      - name: 커버리지 임계값 검사
+        run: |
+          # 각 앱의 coverage-summary.json 파일을 읽어서 평균 계산
+          TOTAL_LINES_COVERED=0
+          TOTAL_LINES=0
+          TOTAL_STATEMENTS_COVERED=0
+          TOTAL_STATEMENTS=0
+          TOTAL_FUNCTIONS_COVERED=0
+          TOTAL_FUNCTIONS=0
+          TOTAL_BRANCHES_COVERED=0
+          TOTAL_BRANCHES=0
+
+          for summary_file in $(find apps packages -name "coverage-summary.json"); do
+            if [ -f "$summary_file" ]; then
+              LINES_COVERED=$(jq -r '.total.lines.covered' "$summary_file")
+              LINES_TOTAL=$(jq -r '.total.lines.total' "$summary_file")
+              STATEMENTS_COVERED=$(jq -r '.total.statements.covered' "$summary_file")
+              STATEMENTS_TOTAL=$(jq -r '.total.statements.total' "$summary_file")
+              FUNCTIONS_COVERED=$(jq -r '.total.functions.covered' "$summary_file")
+              FUNCTIONS_TOTAL=$(jq -r '.total.functions.total' "$summary_file")
+              BRANCHES_COVERED=$(jq -r '.total.branches.covered' "$summary_file")
+              BRANCHES_TOTAL=$(jq -r '.total.branches.total' "$summary_file")
+
+              TOTAL_LINES_COVERED=$((TOTAL_LINES_COVERED + LINES_COVERED))
+              TOTAL_LINES=$((TOTAL_LINES + LINES_TOTAL))
+              TOTAL_STATEMENTS_COVERED=$((TOTAL_STATEMENTS_COVERED + STATEMENTS_COVERED))
+              TOTAL_STATEMENTS=$((TOTAL_STATEMENTS + STATEMENTS_TOTAL))
+              TOTAL_FUNCTIONS_COVERED=$((TOTAL_FUNCTIONS_COVERED + FUNCTIONS_COVERED))
+              TOTAL_FUNCTIONS=$((TOTAL_FUNCTIONS + FUNCTIONS_TOTAL))
+              TOTAL_BRANCHES_COVERED=$((TOTAL_BRANCHES_COVERED + BRANCHES_COVERED))
+              TOTAL_BRANCHES=$((TOTAL_BRANCHES + BRANCHES_TOTAL))
+            fi
+          done
+
+          # 퍼센티지 계산
+          if [ $TOTAL_LINES -gt 0 ]; then
+            LINES_PCT=$(echo "scale=2; 100 * $TOTAL_LINES_COVERED / $TOTAL_LINES" | bc)
+          else
+            LINES_PCT=0
+          fi
+
+          if [ $TOTAL_STATEMENTS -gt 0 ]; then
+            STATEMENTS_PCT=$(echo "scale=2; 100 * $TOTAL_STATEMENTS_COVERED / $TOTAL_STATEMENTS" | bc)
+          else
+            STATEMENTS_PCT=0
+          fi
+
+          if [ $TOTAL_FUNCTIONS -gt 0 ]; then
+            FUNCTIONS_PCT=$(echo "scale=2; 100 * $TOTAL_FUNCTIONS_COVERED / $TOTAL_FUNCTIONS" | bc)
+          else
+            FUNCTIONS_PCT=0
+          fi
+
+          if [ $TOTAL_BRANCHES -gt 0 ]; then
+            BRANCHES_PCT=$(echo "scale=2; 100 * $TOTAL_BRANCHES_COVERED / $TOTAL_BRANCHES" | bc)
+          else
+            BRANCHES_PCT=0
+          fi
+
+          MIN_LINES_PCT=80
+          MIN_STATEMENTS_PCT=80
+          MIN_FUNCTIONS_PCT=80
+          MIN_BRANCHES_PCT=70
+
+          FAILED=false
+
+          if (( $(echo "$LINES_PCT < $MIN_LINES_PCT" | bc -l) )); then
+            echo "❌ 라인 커버리지 $LINES_PCT% < $MIN_LINES_PCT% (최소 기준)"
+            FAILED=true
+          else
+            echo "✅ 라인 커버리지 $LINES_PCT% >= $MIN_LINES_PCT% (최소 기준)"
+          fi
+
+          if (( $(echo "$STATEMENTS_PCT < $MIN_STATEMENTS_PCT" | bc -l) )); then
+            echo "❌ 구문 커버리지 $STATEMENTS_PCT% < $MIN_STATEMENTS_PCT% (최소 기준)"
+            FAILED=true
+          else
+            echo "✅ 구문 커버리지 $STATEMENTS_PCT% >= $MIN_STATEMENTS_PCT% (최소 기준)"
+          fi
+
+          if (( $(echo "$FUNCTIONS_PCT < $MIN_FUNCTIONS_PCT" | bc -l) )); then
+            echo "❌ 함수 커버리지 $FUNCTIONS_PCT% < $MIN_FUNCTIONS_PCT% (최소 기준)"
+            FAILED=true
+          else
+            echo "✅ 함수 커버리지 $FUNCTIONS_PCT% >= $MIN_FUNCTIONS_PCT% (최소 기준)"
+          fi
+
+          if (( $(echo "$BRANCHES_PCT < $MIN_BRANCHES_PCT" | bc -l) )); then
+            echo "❌ 브랜치 커버리지 $BRANCHES_PCT% < $MIN_BRANCHES_PCT% (최소 기준)"
+            FAILED=true
+          else
+            echo "✅ 브랜치 커버리지 $BRANCHES_PCT% >= $MIN_BRANCHES_PCT% (최소 기준)"
+          fi
+
+          if [ "$FAILED" = true ]; then
+            echo "::error::커버리지가 최소 기준을 충족하지 않습니다."
+            exit 1
+          fi
+
+      - name: PR에 커버리지 댓글 작성
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: test-coverage
+          message: |
+            ## 📊 테스트 커버리지 보고서
+
+            | 항목 | 커버리지 | 최소 기준 | 상태 |
+            | --- | --- | --- | --- |
+            | 라인 | ${{ env.LINES_PCT }}% | 80% | ${{ env.LINES_STATUS }} |
+            | 구문 | ${{ env.STATEMENTS_PCT }}% | 80% | ${{ env.STATEMENTS_STATUS }} |
+            | 함수 | ${{ env.FUNCTIONS_PCT }}% | 80% | ${{ env.FUNCTIONS_STATUS }} |
+            | 브랜치 | ${{ env.BRANCHES_PCT }}% | 70% | ${{ env.BRANCHES_STATUS }} |
+
+            ### 📈 커버리지가 낮은 패키지
+            ${{ env.LOW_COVERAGE_PACKAGES }}
+
+            [전체 커버리지 보고서 보기](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        env:
+          LINES_PCT: ${{ env.LINES_PCT }}
+          STATEMENTS_PCT: ${{ env.STATEMENTS_PCT }}
+          FUNCTIONS_PCT: ${{ env.FUNCTIONS_PCT }}
+          BRANCHES_PCT: ${{ env.BRANCHES_PCT }}
+          LINES_STATUS: ${{ env.LINES_PCT >= 80 && '✅' || '❌' }}
+          STATEMENTS_STATUS: ${{ env.STATEMENTS_PCT >= 80 && '✅' || '❌' }}
+          FUNCTIONS_STATUS: ${{ env.FUNCTIONS_PCT >= 80 && '✅' || '❌' }}
+          BRANCHES_STATUS: ${{ env.BRANCHES_PCT >= 70 && '✅' || '❌' }}
+          LOW_COVERAGE_PACKAGES: ${{ env.LOW_COVERAGE_PACKAGES }}
+
+      - name: 커버리지 아티팩트 업로드
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-coverage-report
+          path: coverage
+          retention-days: 14

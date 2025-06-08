@@ -1,0 +1,108 @@
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from enum import Enum
+
+
+class VehicleStatus(str, Enum):
+    """차량 상태 열거형"""
+
+    AVAILABLE = "available"  # 이용 가능
+    IN_USE = "in_use"  # 사용 중
+    MAINTENANCE = "maintenance"  # 정비 중
+    OUT_OF_SERVICE = "out_of_service"  # 운행 불가
+
+
+class VehicleType(str, Enum):
+    """차량 유형 열거형"""
+
+    SEDAN = "sedan"  # 승용차
+    SUV = "suv"  # SUV
+    TRUCK = "truck"  # 트럭
+    VAN = "van"  # 밴
+    MOTORCYCLE = "motorcycle"  # 오토바이
+    BUS = "bus"  # 버스
+    OTHER = "other"  # 기타
+
+
+class VehicleBase(BaseModel):
+    """차량 기본 모델"""
+
+    make: str = Field(..., description="제조사")
+    model: str = Field(..., description="모델명")
+    year: int = Field(..., description="연식", ge=1900, le=datetime.now().year + 1)
+    vehicleType: str = Field(..., description="차량 유형 (sedan, suv, truck 등)")
+    licensePlate: str = Field(..., description="번호판")
+    vin: str = Field(..., description="차대번호")
+    color: Optional[str] = Field(None, description="색상")
+    mileage: int = Field(0, description="주행거리(km)", ge=0)
+    fuelType: Optional[str] = Field(None, description="연료 유형")
+    transmission: Optional[str] = Field(None, description="변속기 유형")
+    engine: Optional[str] = Field(None, description="엔진 정보")
+    features: List[str] = Field([], description="차량 특징/옵션")
+    notes: Optional[str] = Field(None, description="메모")
+    status: str = Field(
+        "available", description="상태 (available, in_use, maintenance, out_of_service)"
+    )
+
+
+class VehicleCreate(VehicleBase):
+    """차량 생성 모델"""
+
+    organizationId: str = Field(..., description="소속 조직 ID")
+
+
+class VehicleUpdate(BaseModel):
+    """차량 업데이트 모델"""
+
+    make: Optional[str] = None
+    model: Optional[str] = None
+    year: Optional[int] = Field(None, ge=1900, le=datetime.now().year + 1)
+    vehicleType: Optional[str] = None
+    licensePlate: Optional[str] = None
+    vin: Optional[str] = None
+    color: Optional[str] = None
+    mileage: Optional[int] = Field(None, ge=0)
+    fuelType: Optional[str] = None
+    transmission: Optional[str] = None
+    engine: Optional[str] = None
+    features: Optional[List[str]] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    organizationId: Optional[str] = None
+
+
+class VehicleResponse(VehicleBase):
+    """차량 응답 모델"""
+
+    id: str
+    organizationId: str
+    createdAt: datetime
+    updatedAt: datetime
+
+    model_config = {"from_attributes": True}  # Pydantic v2 형식
+
+
+class VehicleFilters(BaseModel):
+    """차량 필터링 옵션"""
+
+    make: Optional[str] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    vehicleType: Optional[str] = None
+    licensePlate: Optional[str] = None
+    vin: Optional[str] = None
+    status: Optional[str] = None
+    organizationId: Optional[str] = None
+    page: int = Field(1, ge=1, description="페이지 번호")
+    pageSize: int = Field(10, ge=1, le=100, description="페이지 크기")
+
+
+class VehicleListResponse(BaseModel):
+    """차량 목록 응답"""
+
+    items: List[VehicleResponse]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int

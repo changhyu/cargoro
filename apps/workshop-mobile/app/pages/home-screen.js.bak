@@ -1,0 +1,597 @@
+import React, { useState, useEffect } from 'react';
+
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+// 임시 데이터 - 오늘의 예약
+const DUMMY_APPOINTMENTS = [
+  {
+    id: 'a1',
+    customer: '김철수',
+    vehicle: '현대 아반떼',
+    licensePlate: '123가 4567',
+    time: '09:30',
+    service: '정기 점검, 엔진오일 교체',
+    status: 'upcoming',
+  },
+  {
+    id: 'a2',
+    customer: '이영희',
+    vehicle: '기아 K5',
+    licensePlate: '456나 7890',
+    time: '11:00',
+    service: '타이어 교체, 휠 얼라인먼트',
+    status: 'ongoing',
+  },
+  {
+    id: 'a3',
+    customer: '박민수',
+    vehicle: '삼성 SM6',
+    licensePlate: '789다 1234',
+    time: '14:30',
+    service: '브레이크 패드 교체',
+    status: 'upcoming',
+  },
+  {
+    id: 'a4',
+    customer: '최지은',
+    vehicle: 'BMW 520d',
+    licensePlate: '345라 6789',
+    time: '16:00',
+    service: '냉각수 교체, 에어컨 점검',
+    status: 'upcoming',
+  },
+];
+
+// 임시 데이터 - 완료된 작업
+const DUMMY_COMPLETED = [
+  {
+    id: 'c1',
+    customer: '정도윤',
+    vehicle: '현대 싼타페',
+    licensePlate: '567마 8901',
+    service: '엔진오일 교체, 에어필터 교체',
+    completedTime: '08:45',
+  },
+  {
+    id: 'c2',
+    customer: '강하늘',
+    vehicle: '기아 스포티지',
+    licensePlate: '012바 3456',
+    service: '타이어 교체',
+    completedTime: '09:15',
+  },
+];
+
+// 임시 데이터 - 부품 재고
+const DUMMY_PARTS = [
+  { id: 'p1', name: '엔진오일 필터', stock: 15, lowStock: false },
+  { id: 'p2', name: '브레이크 패드 (전륜)', stock: 5, lowStock: true },
+  { id: 'p3', name: '에어컨 필터', stock: 8, lowStock: false },
+  { id: 'p4', name: '와이퍼 블레이드', stock: 3, lowStock: true },
+];
+
+const HomeScreen = ({ navigation }) => {
+  const [todayStats, setTodayStats] = useState({
+    total: DUMMY_APPOINTMENTS.length,
+    completed: DUMMY_COMPLETED.length,
+    ongoing: DUMMY_APPOINTMENTS.filter(a => a.status === 'ongoing').length,
+    upcoming: DUMMY_APPOINTMENTS.filter(a => a.status === 'upcoming').length,
+  });
+
+  const [appointments, setAppointments] = useState(DUMMY_APPOINTMENTS);
+  const [completedServices, setCompletedServices] = useState(DUMMY_COMPLETED);
+  const [alertParts, setAlertParts] = useState(DUMMY_PARTS.filter(p => p.lowStock));
+
+  // 예약 상태에 따른 색상 매핑
+  const getStatusColor = status => {
+    switch (status) {
+      case 'upcoming':
+        return '#3498db';
+      case 'ongoing':
+        return '#f39c12';
+      case 'completed':
+        return '#2ecc71';
+      default:
+        return '#7f8c8d';
+    }
+  };
+
+  // 예약 상태에 따른 텍스트 매핑
+  const getStatusText = status => {
+    switch (status) {
+      case 'upcoming':
+        return '예정됨';
+      case 'ongoing':
+        return '진행 중';
+      case 'completed':
+        return '완료됨';
+      default:
+        return '알 수 없음';
+    }
+  };
+
+  // 예약 아이템 렌더링
+  const renderAppointmentItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.appointmentItem}
+      onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: item.id })}
+    >
+      <View style={styles.appointmentHeader}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+        </View>
+        <Text style={styles.appointmentTime}>{item.time}</Text>
+      </View>
+
+      <View style={styles.appointmentContent}>
+        <Text style={styles.customerName}>{item.customer}</Text>
+        <Text style={styles.vehicleInfo}>
+          {item.vehicle} ({item.licensePlate})
+        </Text>
+        <Text style={styles.serviceInfo}>{item.service}</Text>
+      </View>
+
+      <View style={styles.appointmentActions}>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            { backgroundColor: item.status === 'upcoming' ? '#3498db' : '#f39c12' },
+          ]}
+          onPress={() => navigation.navigate('ServiceForm', { appointmentId: item.id })}
+        >
+          <Text style={styles.actionButtonText}>
+            {item.status === 'upcoming' ? '작업 시작' : '작업 확인'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // 완료된 작업 아이템 렌더링
+  const renderCompletedItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.completedItem}
+      onPress={() => navigation.navigate('CompletedDetail', { serviceId: item.id })}
+    >
+      <View style={styles.completedHeader}>
+        <Text style={styles.completedTime}>{item.completedTime} 완료</Text>
+      </View>
+
+      <View style={styles.completedContent}>
+        <Text style={styles.customerName}>{item.customer}</Text>
+        <Text style={styles.vehicleInfo}>
+          {item.vehicle} ({item.licensePlate})
+        </Text>
+        <Text style={styles.serviceInfo}>{item.service}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>안녕하세요!</Text>
+          <Text style={styles.userName}>강정비님</Text>
+        </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <View style={styles.profileIcon}>
+            <Icon name="account-circle" size={28} color="#2c3e50" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 오늘 통계 */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{todayStats.total}</Text>
+            <Text style={styles.statLabel}>전체</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{todayStats.completed}</Text>
+            <Text style={styles.statLabel}>완료</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{todayStats.ongoing}</Text>
+            <Text style={styles.statLabel}>진행 중</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{todayStats.upcoming}</Text>
+            <Text style={styles.statLabel}>대기 중</Text>
+          </View>
+        </View>
+
+        {/* 바로가기 버튼 */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('NewAppointment')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Icon name="calendar-plus" size={24} color="#3498db" />
+            </View>
+            <Text style={styles.quickActionText}>예약 추가</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('Inventory')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Icon name="tools" size={24} color="#3498db" />
+            </View>
+            <Text style={styles.quickActionText}>부품 관리</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('Customers')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Icon name="account-group" size={24} color="#3498db" />
+            </View>
+            <Text style={styles.quickActionText}>고객 관리</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('Reports')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Icon name="chart-line" size={24} color="#3498db" />
+            </View>
+            <Text style={styles.quickActionText}>리포트</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 오늘의 예약 */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>오늘의 예약</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Appointments')}>
+              <Text style={styles.seeAllText}>모두 보기</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={appointments}
+            renderItem={renderAppointmentItem}
+            keyExtractor={item => item.id}
+            scrollEnabled={false}
+            contentContainerStyle={styles.appointmentsList}
+          />
+        </View>
+
+        {/* 오늘 완료한 작업 */}
+        {completedServices.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>완료된 작업</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('CompletedServices')}>
+                <Text style={styles.seeAllText}>모두 보기</Text>
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={completedServices}
+              renderItem={renderCompletedItem}
+              keyExtractor={item => item.id}
+              scrollEnabled={false}
+              contentContainerStyle={styles.completedList}
+            />
+          </View>
+        )}
+
+        {/* 부품 알림 */}
+        {alertParts.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>부품 재고 알림</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Inventory')}>
+                <Text style={styles.seeAllText}>재고 관리</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.alertBox}>
+              <View style={styles.alertIconContainer}>
+                <Icon name="alert-circle-outline" size={24} color="#e74c3c" />
+              </View>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>재고가 적은 부품이 있습니다</Text>
+                <Text style={styles.alertMessage}>
+                  {alertParts.map(part => part.name).join(', ')}의 재고가 부족합니다.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* 하단 내비게이션 */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={[styles.bottomNavItem, styles.bottomNavItemActive]}>
+          <Icon name="home" size={24} color="#3498db" />
+          <Text style={[styles.bottomNavText, styles.bottomNavTextActive]}>홈</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.bottomNavItem}
+          onPress={() => navigation.navigate('Appointments')}
+        >
+          <Icon name="calendar" size={24} color="#7f8c8d" />
+          <Text style={styles.bottomNavText}>예약</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.bottomNavItem}
+          onPress={() => navigation.navigate('Inventory')}
+        >
+          <Icon name="tools" size={24} color="#7f8c8d" />
+          <Text style={styles.bottomNavText}>부품</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.bottomNavItem}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Icon name="cog" size={24} color="#7f8c8d" />
+          <Text style={styles.bottomNavText}>설정</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: 'white',
+  },
+  greeting: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  profileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    marginVertical: 16,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRightWidth: 1,
+    borderRightColor: '#f0f0f0',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  quickActionButton: {
+    width: '48%',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  quickActionIcon: {
+    marginRight: 12,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2c3e50',
+  },
+  sectionContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  seeAllText: {
+    fontSize: 12,
+    color: '#3498db',
+  },
+  appointmentsList: {
+    // 추가 스타일 필요 시
+  },
+  appointmentItem: {
+    marginBottom: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+  },
+  appointmentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  appointmentTime: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2c3e50',
+  },
+  appointmentContent: {
+    marginBottom: 12,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  vehicleInfo: {
+    fontSize: 14,
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  serviceInfo: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  appointmentActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  actionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: '500',
+    fontSize: 14,
+  },
+  completedList: {
+    // 추가 스타일 필요 시
+  },
+  completedItem: {
+    marginBottom: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2ecc71',
+  },
+  completedHeader: {
+    marginBottom: 8,
+  },
+  completedTime: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  completedContent: {
+    // 추가 스타일 필요 시
+  },
+  alertBox: {
+    backgroundColor: '#fdedec',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  alertIconContainer: {
+    marginRight: 12,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#c0392b',
+    marginBottom: 4,
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#c0392b',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingTop: 8,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  bottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  bottomNavItemActive: {
+    // 활성화 스타일
+  },
+  bottomNavText: {
+    fontSize: 10,
+    color: '#7f8c8d',
+    marginTop: 4,
+  },
+  bottomNavTextActive: {
+    color: '#3498db',
+  },
+});
+
+export default HomeScreen;

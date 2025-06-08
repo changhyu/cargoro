@@ -1,0 +1,19 @@
+{
+  "name": "@cargoro/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit --skipLibCheck"
+  },
+  "dependencies": {
+    "i18next": "^23.4.4",
+    "react-i18next": "^13.1.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/node": "^22.15.30",
+    "i18next-browser-languagedetector": "^8.1.0",
+    "typescript": "^5.1.6"
+  }
+}

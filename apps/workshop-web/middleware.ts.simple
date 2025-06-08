@@ -1,0 +1,9 @@
+import { clerkMiddleware } from '@clerk/nextjs/server';
+
+// 기본 미들웨어 - 모든 경로 공개
+export default clerkMiddleware();
+
+// 미들웨어 매처 설정
+export const config = {
+  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+};

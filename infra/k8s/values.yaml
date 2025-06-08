@@ -1,0 +1,182 @@
+global:
+  environment: dev
+  domain: "cargoro.com"
+
+# API Gateway 서비스 설정
+apiGateway:
+  name: api-gateway
+  image: node:18-alpine
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    timeoutSeconds: 5
+    periodSeconds: 10
+  env:
+    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/cargoro"
+    REDIS_URL: "redis://redis:6379/0"
+    RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    NODE_ENV: "{{ .Values.global.environment }}"
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: "api.{{ .Values.global.domain }}"
+        paths:
+          - path: /
+            pathType: Prefix
+
+# Worker 서비스 설정
+worker:
+  name: worker
+  image: node:18-alpine
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+  livenessProbe:
+    exec:
+      command:
+        - node
+        - -e
+        - "console.log('Health check passed')"
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 15
+  env:
+    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/cargoro"
+    REDIS_URL: "redis://redis:6379/0"
+    RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    NODE_ENV: "{{ .Values.global.environment }}"
+
+# PostgreSQL 서비스 설정
+postgres:
+  name: postgres
+  image: postgres:15
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 10Gi
+  resources:
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+  user: postgres
+  password: postgres
+  db: cargoro
+  service:
+    port: 5432
+  livenessProbe:
+    exec:
+      command:
+        - pg_isready
+        - -U
+        - postgres
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+
+# Redis 서비스 설정
+redis:
+  name: redis
+  image: redis:7-alpine
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 5Gi
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+  password: redis
+  service:
+    port: 6379
+  livenessProbe:
+    exec:
+      command:
+        - redis-cli
+        - ping
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+
+# RabbitMQ 서비스 설정
+rabbitmq:
+  name: rabbitmq
+  image: rabbitmq:3-management
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 5Gi
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+  user: guest
+  password: guest
+  service:
+    amqpPort: 5672
+    managementPort: 15672
+  livenessProbe:
+    exec:
+      command:
+        - rabbitmq-diagnostics
+        - -q
+        - ping
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+
+# 네트워크 정책 설정
+networkPolicies:
+  enabled: true
+  
+# 모니터링 설정
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+  
+# 로깅 설정
+logging:
+  enabled: true
+  elasticsearch:
+    enabled: false
+  fluentd:
+    enabled: true

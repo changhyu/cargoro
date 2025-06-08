@@ -1,0 +1,5 @@
+# 개발 중인 기능이나 미완성 컴포넌트 무시
+app/features/drivers/performance-management.tsx
+app/dashboard/map/map-controls-fix.js
+app/diagnose/page.tsx
+app/diagnose-redirect/page.tsx

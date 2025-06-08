@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "index.ts",
+    "schema/**/*.ts",
+    "unknown.ts",
+    "examples/**/*.ts",
+    "tests/**/*.ts",
+    "testTypes.d.ts"
+  ],
+  "exclude": ["dist", "build", "node_modules"]
+}

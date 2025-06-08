@@ -1,0 +1,100 @@
+{
+  "name": "@cargoro/auth",
+  "version": "0.1.0",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "require": "./index.ts"
+    },
+    "./web": {
+      "types": "./web.ts",
+      "import": "./web.ts",
+      "require": "./web.ts"
+    },
+    "./server": {
+      "types": "./server.ts",
+      "import": "./server.ts",
+      "require": "./server.ts"
+    },
+    "./server-actions": {
+      "types": "./server-actions.ts",
+      "import": "./server-actions.ts",
+      "require": "./server-actions.ts"
+    },
+    "./components/RequireAuth": {
+      "types": "./components/RequireAuth.tsx",
+      "import": "./components/RequireAuth.tsx",
+      "require": "./components/RequireAuth.tsx"
+    },
+    "./components/SWRProvider": {
+      "types": "./components/SWRProvider.tsx",
+      "import": "./components/SWRProvider.tsx",
+      "require": "./components/SWRProvider.tsx"
+    },
+    "./utils/auth-utils": {
+      "types": "./utils/auth-utils.ts",
+      "import": "./utils/auth-utils.ts",
+      "require": "./utils/auth-utils.ts"
+    },
+    "./mobile": {
+      "types": "./mobile.tsx",
+      "import": "./mobile.tsx",
+      "require": "./mobile.tsx"
+    },
+    "./client": {
+      "types": "./client.ts",
+      "import": "./client.ts",
+      "require": "./client.ts"
+    },
+    "./lib/clear-clerk-cookies": {
+      "types": "./lib/clear-clerk-cookies.ts",
+      "import": "./lib/clear-clerk-cookies.ts",
+      "require": "./lib/clear-clerk-cookies.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck:mobile": "tsc --noEmit -p tsconfig.mobile.json",
+    "build": "tsup --no-dts",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cargoro/api-client": "workspace:*",
+    "@cargoro/types": "workspace:*",
+    "@clerk/clerk-expo": "^2.11.8",
+    "@clerk/nextjs": "6.21.0",
+    "@clerk/themes": "^2.2.48",
+    "@react-native-async-storage/async-storage": "^1.21.0",
+    "@types/react-router-dom": "^5.3.3",
+    "next": "14.2.25",
+    "react-router-dom": "^7.6.2",
+    "svix": "^1.66.0",
+    "swr": "^2.3.3",
+    "zod": "^3.22.2",
+    "zustand": "^4.4.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@types/node": "^20.3.2",
+    "@types/react": "^18.2.14",
+    "@types/react-dom": "^18.2.6",
+    "@types/testing-library__jest-dom": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^8.44.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-native": "^0.72.0",
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6"
+  }
+}

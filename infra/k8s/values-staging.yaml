@@ -1,0 +1,108 @@
+# Staging Environment Values
+global:
+  environment: staging
+  domain: staging.cargoro.com
+  image:
+    repository: ghcr.io/cargoro/cargoro
+    tag: develop-latest
+    pullPolicy: Always
+
+  # Staging resource limits (lower than production)
+  resources:
+    api-gateway:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    worker:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+# Replica counts for staging
+replicaCount:
+  apiGateway: 1
+  worker: 1
+  postgres: 1
+  redis: 1
+  rabbitmq: 1
+
+# Database configuration
+postgres:
+  persistence:
+    size: 5Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+redis:
+  persistence:
+    size: 2Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+rabbitmq:
+  persistence:
+    size: 2Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: 'letsencrypt-staging'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+  hosts:
+    - host: api-staging.cargoro.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: api-staging-tls
+      hosts:
+        - api-staging.cargoro.com
+
+# Monitoring and logging
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+  fluentd:
+    enabled: true
+
+# Auto-scaling (disabled for staging)
+autoscaling:
+  enabled: false
+
+# Environment variables
+env:
+  NODE_ENV: staging
+  LOG_LEVEL: debug
+  DATABASE_POOL_MAX: 5
+  REDIS_MAX_CONNECTIONS: 10

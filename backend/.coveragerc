@@ -1,0 +1,34 @@
+[run]
+source = .
+branch = True
+omit =
+    */tests/*
+    */node_modules/*
+    */venv/*
+    */.venv/*
+    */migrations/*
+    */alembic/*
+    */site-packages/*
+    */examples/*
+    conftest.py
+    setup.py
+    __pycache__/*
+    *.pyc
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError
+    if TYPE_CHECKING:
+    @abstractmethod
+fail_under = 80
+
+[html]
+directory = htmlcov
+title = 카고로(CarGoro) 백엔드 테스트 커버리지 리포트

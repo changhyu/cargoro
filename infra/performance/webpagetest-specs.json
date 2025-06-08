@@ -1,0 +1,140 @@
+{
+  "metrics": [
+    {
+      "metric": "TTFB",
+      "label": "First Byte Time",
+      "threshold": 600,
+      "level": "warning"
+    },
+    {
+      "metric": "firstPaint",
+      "label": "First Paint",
+      "threshold": 1000,
+      "level": "error"
+    },
+    {
+      "metric": "loadTime",
+      "label": "Document Complete",
+      "threshold": 3000,
+      "level": "error"
+    },
+    {
+      "metric": "fullyLoaded",
+      "label": "Fully Loaded",
+      "threshold": 5000,
+      "level": "warning"
+    },
+    {
+      "metric": "FirstContentfulPaint",
+      "label": "First Contentful Paint",
+      "threshold": 1200,
+      "level": "error"
+    },
+    {
+      "metric": "LargestContentfulPaint",
+      "label": "Largest Contentful Paint",
+      "threshold": 2500,
+      "level": "warning"
+    },
+    {
+      "metric": "TotalBlockingTime",
+      "label": "Total Blocking Time",
+      "threshold": 300,
+      "level": "warning"
+    },
+    {
+      "metric": "CumulativeLayoutShift",
+      "label": "Cumulative Layout Shift",
+      "threshold": 0.1,
+      "level": "warning"
+    },
+    {
+      "metric": "SpeedIndex",
+      "label": "Speed Index",
+      "threshold": 3000,
+      "level": "warning"
+    },
+    {
+      "metric": "visualComplete",
+      "label": "Visual Complete",
+      "threshold": 4000,
+      "level": "warning"
+    }
+  ],
+  "network": [
+    {
+      "metric": "breakdown.html.requests",
+      "label": "HTML Requests",
+      "threshold": 5,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.js.requests",
+      "label": "JS Requests",
+      "threshold": 20,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.css.requests",
+      "label": "CSS Requests",
+      "threshold": 5,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.image.requests",
+      "label": "Image Requests",
+      "threshold": 30,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.font.bytes",
+      "label": "Font Size",
+      "threshold": 100000,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.js.bytes",
+      "label": "JS Size",
+      "threshold": 400000,
+      "level": "error"
+    },
+    {
+      "metric": "breakdown.css.bytes",
+      "label": "CSS Size",
+      "threshold": 100000,
+      "level": "warning"
+    },
+    {
+      "metric": "breakdown.image.bytes",
+      "label": "Image Size",
+      "threshold": 1000000,
+      "level": "warning"
+    }
+  ],
+  "lighthouse": [
+    {
+      "metric": "lighthouse.Performance",
+      "label": "Lighthouse Performance",
+      "threshold": 90,
+      "level": "warning"
+    },
+    {
+      "metric": "lighthouse.Accessibility",
+      "label": "Lighthouse Accessibility",
+      "threshold": 90,
+      "level": "warning"
+    },
+    {
+      "metric": "lighthouse.BestPractices",
+      "label": "Lighthouse Best Practices",
+      "threshold": 90,
+      "level": "warning"
+    },
+    {
+      "metric": "lighthouse.SEO",
+      "label": "Lighthouse SEO",
+      "threshold": 90,
+      "level": "warning"
+    }
+  ]
+}
